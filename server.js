@@ -9,6 +9,10 @@ const io = new Server(server);
 
 app.use(express.static(path.join(__dirname, 'public')));
 
+app.get('/', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'index.html'));
+});
+
 const rooms = {};
 
 function generateRoomCode() {
@@ -23,17 +27,20 @@ function generateRoomCode() {
 async function fetchAIQuestion() {
   try {
     const res = await fetch('https://opentdb.com/api.php?amount=1&type=multiple');
+    if (!res.ok) throw new Error('API error');
     const data = await res.json();
     if (data.results && data.results.length > 0) {
       const q = data.results[0];
-      const clean = (str) => str.replace(/"/g, '"').replace(/'/g, "'").replace(/&/g, '&');
+      const clean = (str) => str.replace(/&quot;/g, '"').replace(/&#039;/g, "'").replace(/&amp;/g, '&').replace(/&deg;/g, '°');
       return {
         question: clean(q.question),
         answer: clean(q.correct_answer),
         houseLies: q.incorrect_answers.map(clean)
       };
     }
-  } catch (err) {}
+  } catch (err) {
+    console.log('Trivia API fallback used:', err.message);
+  }
   return {
     question: "In 1912, an Olympic athlete was forced to forfeit his medals after playing professional ____.",
     answer: "Baseball",
@@ -57,13 +64,14 @@ io.on('connection', (socket) => {
   });
 
   socket.on('joinRoom', ({ roomCode, name }) => {
-    const room = rooms[roomCode?.toUpperCase()];
+    const cleanCode = roomCode ? roomCode.toUpperCase() : '';
+    const room = rooms[cleanCode];
     if (!room) return socket.emit('errorMsg', 'Room not found.');
     if (room.state !== 'LOBBY') return socket.emit('errorMsg', 'Game already in progress.');
 
     room.players[socket.id] = { name, score: 0, currentLie: '' };
-    socket.join(roomCode.toUpperCase());
-    socket.emit('joinedSuccess', { roomCode: roomCode.toUpperCase(), name });
+    socket.join(cleanCode);
+    socket.emit('joinedSuccess', { roomCode: cleanCode, name });
     io.to(room.hostId).emit('updatePlayers', Object.values(room.players));
   });
 
@@ -136,5 +144,5 @@ io.on('connection', (socket) => {
   });
 });
 
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT || 10000;
 server.listen(PORT, () => console.log(`Server running on port ${PORT}`));
