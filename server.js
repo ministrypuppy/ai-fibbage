@@ -64,51 +64,61 @@ io.on('connection', (socket) => {
   });
 
   socket.on('joinRoom', ({ roomCode, name }) => {
-    const cleanCode = roomCode ? roomCode.toUpperCase() : '';
+    const cleanCode = roomCode ? roomCode.trim().toUpperCase() : '';
     const room = rooms[cleanCode];
     if (!room) return socket.emit('errorMsg', 'Room not found.');
     if (room.state !== 'LOBBY') return socket.emit('errorMsg', 'Game already in progress.');
 
-    room.players[socket.id] = { name, score: 0, currentLie: '' };
     socket.join(cleanCode);
+    room.players[socket.id] = { name, score: 0, currentLie: '' };
     socket.emit('joinedSuccess', { roomCode: cleanCode, name });
     io.to(room.hostId).emit('updatePlayers', Object.values(room.players));
   });
 
   socket.on('startRound', async (roomCode) => {
-    const room = rooms[roomCode];
+    const cleanCode = roomCode ? roomCode.trim().toUpperCase() : '';
+    const room = rooms[cleanCode];
     if (!room) return;
+    
     room.state = 'SUBMITTING';
     room.votes = {};
-    Object.values(room.players).forEach(p => p.currentLie = '');
+    Object.keys(room.players).forEach(id => {
+      room.players[id].currentLie = '';
+    });
 
     const qData = await fetchAIQuestion();
     room.currentQuestion = qData;
 
-    io.to(roomCode).emit('newRound', { question: qData.question });
+    io.to(cleanCode).emit('newRound', { question: qData.question });
   });
 
   socket.on('submitLie', ({ roomCode, lie }) => {
-    const room = rooms[roomCode];
+    const cleanCode = roomCode ? roomCode.trim().toUpperCase() : '';
+    const room = rooms[cleanCode];
     if (!room || !room.players[socket.id]) return;
 
     room.players[socket.id].currentLie = lie.trim();
-    
-    const playerList = Object.values(room.players);
-    const allSubmitted = playerList.length > 0 && playerList.every(p => p.currentLie.length > 0);
 
-    if (allSubmitted) {
+    const playersArray = Object.values(room.players);
+    const submittedCount = playersArray.filter(p => p.currentLie.length > 0).length;
+
+    io.to(room.hostId).emit('hostStatusUpdate', `Submitted: ${submittedCount} / ${playersArray.length}`);
+
+    if (submittedCount === playersArray.length && playersArray.length > 0) {
       room.state = 'VOTING';
       const rawOptions = [{ text: room.currentQuestion.answer, isCorrect: true, author: 'TRUTH' }];
+      
       Object.entries(room.players).forEach(([id, p]) => {
         rawOptions.push({ text: p.currentLie, isCorrect: false, author: id });
       });
+
       if (room.currentQuestion.houseLies && room.currentQuestion.houseLies[0]) {
         rawOptions.push({ text: room.currentQuestion.houseLies[0], isCorrect: false, author: 'HOUSE' });
       }
 
       room.options = rawOptions.sort(() => Math.random() - 0.5);
-      io.to(roomCode).emit('startVoting', {
+      
+      io.to(cleanCode).emit('startVoting', {
         question: room.currentQuestion.question,
         options: room.options.map(o => o.text)
       });
@@ -116,14 +126,14 @@ io.on('connection', (socket) => {
   });
 
   socket.on('submitVote', ({ roomCode, optionIndex }) => {
-    const room = rooms[roomCode];
+    const cleanCode = roomCode ? roomCode.trim().toUpperCase() : '';
+    const room = rooms[cleanCode];
     if (!room || !room.players[socket.id]) return;
 
     room.votes[socket.id] = optionIndex;
-    const playerList = Object.keys(room.players);
-    const allVoted = playerList.length > 0 && playerList.every(id => room.votes[id] !== undefined);
+    const playerIds = Object.keys(room.players);
 
-    if (allVoted) {
+    if (Object.keys(room.votes).length === playerIds.length && playerIds.length > 0) {
       room.state = 'REVEAL';
       Object.entries(room.votes).forEach(([voterId, chosenIdx]) => {
         const chosenOption = room.options[chosenIdx];
@@ -137,13 +147,23 @@ io.on('connection', (socket) => {
         }
       });
 
-      io.to(roomCode).emit('showReveal', {
+      io.to(cleanCode).emit('showReveal', {
         truth: room.currentQuestion.answer,
         options: room.options,
         votes: room.votes,
         players: room.players
       });
     }
+  });
+
+  socket.on('disconnect', () => {
+    Object.keys(rooms).forEach(code => {
+      const room = rooms[code];
+      if (room.players[socket.id]) {
+        delete room.players[socket.id];
+        io.to(room.hostId).emit('updatePlayers', Object.values(room.players));
+      }
+    });
   });
 });
 
