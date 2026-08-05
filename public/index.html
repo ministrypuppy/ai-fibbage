@@ -1,50 +1,302 @@
-Bluff Master - AI Fibbage
-  
-  
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Bluff Master - AI Fibbage</title>
+  <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+    body { background: #121212; color: #fff; text-align: center; padding: 20px; }
+    .card { background: #1e1e2e; padding: 25px; border-radius: 12px; max-width: 600px; margin: 20px auto; box-shadow: 0 4px 15px rgba(0,0,0,0.5); position: relative; }
+    h1 { color: #ff0055; margin-bottom: 15px; font-size: 2.2rem; }
+    input, button { width: 100%; padding: 14px; margin: 10px 0; border-radius: 8px; border: none; font-size: 1.1rem; }
+    input { background: #2a2a3c; color: white; }
+    button { background: #ff0055; color: white; font-weight: bold; cursor: pointer; transition: 0.2s; }
+    button:hover { background: #ff2a75; }
+    .room-code { font-size: 3rem; font-weight: bold; letter-spacing: 5px; color: #00e5ff; }
+    .option-btn { background: #2a2a3c; text-align: left; margin: 8px 0; }
+    .hidden { display: none; }
+    ul { list-style: none; text-align: left; margin: 10px 0; }
+    li { padding: 8px 0; border-bottom: 1px solid #333; }
+    .audio-controls { position: absolute; top: 15px; right: 15px; background: #2a2a3c; padding: 6px 12px; border-radius: 20px; font-size: 0.85rem; cursor: pointer; border: 1px solid #444; }
+  </style>
+</head>
+<body>
 
+  <div id="view-landing" class="card">
+    <h1>BLUFF MASTER</h1>
+    <button onclick="showHostSetup()">Host Game (TV / Tablet)</button>
+    <button onclick="showPlayerSetup()">Join Game (Phone)</button>
+  </div>
 
+  <div id="view-host" class="card hidden">
+    <div class="audio-controls" onclick="toggleMute()" id="mute-btn">🔊 Audio: ON</div>
+    <h1>HOST SCREEN</h1>
+    <div id="host-lobby">
+      <p>Join at this URL on your phone!</p>
+      <p>ROOM CODE:</p>
+      <div id="room-code-display" class="room-code">----</div>
+      <h3>Players Joined:</h3>
+      <ul id="player-list"></ul>
+      <button onclick="startRound()">Start Game</button>
+    </div>
 
-  
-    BLUFF MASTER
-    Host Game (TV / Tablet)
-    Join Game (Phone)
-  
+    <div id="host-gameplay" class="hidden">
+      <h2 id="host-question" style="color: #00e5ff; margin-bottom: 20px;"></h2>
+      <p id="host-status" style="font-size: 1.2rem;"></p>
+      <div id="host-reveal" class="hidden"></div>
+      <button id="next-btn" class="hidden" onclick="startRound()">Next Round</button>
+    </div>
+  </div>
 
-  
-    🔊 Audio: ON
-    HOST SCREEN
-    
-      Join at this URL on your phone!
-      ROOM CODE:
-      ----
-      Players Joined:
-      
-      Start Game
-    
+  <div id="view-player" class="card hidden">
+    <div id="player-join">
+      <h1>JOIN GAME</h1>
+      <input type="text" id="join-code" placeholder="4-Letter Room Code" style="text-transform: uppercase;">
+      <input type="text" id="join-name" placeholder="Your Name">
+      <button onclick="joinRoom()">Join Room</button>
+    </div>
 
-    
+    <div id="player-gameplay" class="hidden">
+      <p id="player-status" style="color: #00e5ff; font-weight: bold; margin-bottom: 15px;"></p>
       
-      
-      
-      Next Round
-    
-  
+      <div id="lie-form">
+        <input type="text" id="lie-input" placeholder="Type your believable lie...">
+        <button onclick="submitLie()">Submit Lie</button>
+      </div>
 
-  
-    
-      JOIN GAME
-      
-      
-      Join Room
-    
+      <div id="vote-form" class="hidden">
+        <h3>Pick the Real Answer:</h3>
+        <div id="options-container"></div>
+      </div>
+    </div>
+  </div>
 
-    
-      
-      
-      
-        
-        Submit Lie
-      
+  <script>
+    const socket = io();
+    let currentRoom = '';
+    let isHost = false;
+    let isMuted = false;
+    let audioCtx = null;
+    let musicInterval = null;
 
-      
-        Pick the Real Answer:
+    function initAudio() {
+      if (!audioCtx) {
+        audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      }
+    }
+
+    function playTone(freq, type, duration, delay = 0, vol = 0.1) {
+      if (!isHost || isMuted || !audioCtx) return;
+      setTimeout(() => {
+        try {
+          const osc = audioCtx.createOscillator();
+          const gain = audioCtx.createGain();
+          osc.type = type;
+          osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
+          gain.gain.setValueAtTime(vol, audioCtx.currentTime);
+          gain.gain.exponentialRampToValueAtTime(0.0001, audioCtx.currentTime + duration);
+          osc.connect(gain);
+          gain.connect(audioCtx.destination);
+          osc.start();
+          osc.stop(audioCtx.currentTime + duration);
+        } catch(e){}
+      }, delay);
+    }
+
+    function stopMusic() {
+      if (musicInterval) {
+        clearInterval(musicInterval);
+        musicInterval = null;
+      }
+    }
+
+    function playLobbyMusic() {
+      stopMusic();
+      if (!isHost || isMuted) return;
+      initAudio();
+      const notes = [261.63, 329.63, 392.00, 523.25, 392.00, 329.63];
+      let step = 0;
+      musicInterval = setInterval(() => {
+        playTone(notes[step % notes.length], 'sine', 0.2, 0, 0.05);
+        step++;
+      }, 300);
+    }
+
+    function playThinkingMusic() {
+      stopMusic();
+      if (!isHost || isMuted) return;
+      initAudio();
+      const notes = [146.83, 174.61, 220.00, 174.61];
+      let step = 0;
+      musicInterval = setInterval(() => {
+        playTone(notes[step % notes.length], 'triangle', 0.4, 0, 0.08);
+        step++;
+      }, 500);
+    }
+
+    function playJoinSound() {
+      initAudio();
+      playTone(440, 'sine', 0.1, 0, 0.1);
+      playTone(880, 'sine', 0.15, 80, 0.1);
+    }
+
+    function playTickSound() {
+      initAudio();
+      playTone(800, 'square', 0.05, 0, 0.03);
+    }
+
+    function playRevealSound() {
+      initAudio();
+      for (let i = 0; i < 15; i++) {
+        playTone(100 + Math.random() * 50, 'sawtooth', 0.05, i * 60, 0.08);
+      }
+    }
+
+    function playWinSound() {
+      initAudio();
+      playTone(523.25, 'triangle', 0.3, 0, 0.1);
+      playTone(659.25, 'triangle', 0.3, 100, 0.1);
+      playTone(783.99, 'triangle', 0.3, 200, 0.1);
+      playTone(1046.50, 'triangle', 0.6, 300, 0.12);
+    }
+
+    function toggleMute() {
+      isMuted = !isMuted;
+      document.getElementById('mute-btn').innerText = isMuted ? '🔇 Audio: OFF' : '🔊 Audio: ON';
+      if (isMuted) {
+        stopMusic();
+      } else if (isHost) {
+        playLobbyMusic();
+      }
+    }
+
+    function hideAll() {
+      ['view-landing', 'view-host', 'view-player'].forEach(id => {
+        document.getElementById(id).classList.add('hidden');
+      });
+    }
+
+    function showHostSetup() {
+      hideAll();
+      document.getElementById('view-host').classList.remove('hidden');
+      isHost = true;
+      initAudio();
+      socket.emit('createRoom');
+      playLobbyMusic();
+    }
+
+    function showPlayerSetup() {
+      hideAll();
+      document.getElementById('view-player').classList.remove('hidden');
+    }
+
+    socket.on('roomCreated', ({ roomCode }) => {
+      currentRoom = roomCode;
+      document.getElementById('room-code-display').innerText = roomCode;
+    });
+
+    socket.on('updatePlayers', (players) => {
+      playJoinSound();
+      const list = document.getElementById('player-list');
+      list.innerHTML = players.map(p => `<li>${p.name} - ${p.score} pts</li>`).join('');
+    });
+
+    socket.on('newRound', ({ question }) => {
+      if (isHost) {
+        playThinkingMusic();
+        document.getElementById('host-lobby').classList.add('hidden');
+        document.getElementById('host-gameplay').classList.remove('hidden');
+        document.getElementById('host-reveal').classList.add('hidden');
+        document.getElementById('next-btn').classList.add('hidden');
+        document.getElementById('host-question').innerText = question;
+        document.getElementById('host-status').innerText = 'Waiting for player lies...';
+      } else {
+        document.getElementById('player-join').classList.add('hidden');
+        document.getElementById('player-gameplay').classList.remove('hidden');
+        document.getElementById('lie-form').classList.remove('hidden');
+        document.getElementById('vote-form').classList.add('hidden');
+        document.getElementById('player-status').innerText = question;
+        document.getElementById('lie-input').value = '';
+      }
+    });
+
+    function startRound() {
+      socket.emit('startRound', currentRoom);
+    }
+
+    function joinRoom() {
+      const code = document.getElementById('join-code').value.trim();
+      const name = document.getElementById('join-name').value.trim();
+      if (code && name) {
+        currentRoom = code;
+        socket.emit('joinRoom', { roomCode: code, name });
+      }
+    }
+
+    socket.on('joinedSuccess', () => {
+      document.getElementById('player-join').classList.add('hidden');
+      document.getElementById('player-gameplay').classList.remove('hidden');
+      document.getElementById('player-status').innerText = 'Connected! Waiting for host...';
+      document.getElementById('lie-form').classList.add('hidden');
+    });
+
+    function submitLie() {
+      const lie = document.getElementById('lie-input').value;
+      if (lie) {
+        socket.emit('submitLie', { roomCode: currentRoom, lie });
+        document.getElementById('lie-form').classList.add('hidden');
+        document.getElementById('player-status').innerText = 'Lie submitted! Waiting for others...';
+      }
+    }
+
+    socket.on('startVoting', ({ options }) => {
+      if (!isHost) {
+        document.getElementById('lie-form').classList.add('hidden');
+        document.getElementById('vote-form').classList.remove('hidden');
+        document.getElementById('player-status').innerText = 'Vote for the TRUTH!';
+        const container = document.getElementById('options-container');
+        container.innerHTML = options.map((opt, idx) => `
+          <button class="option-btn" onclick="submitVote(${idx})">${opt}</button>
+        `).join('');
+      } else {
+        playTickSound();
+        document.getElementById('host-status').innerText = 'Voting in progress on phones...';
+      }
+    });
+
+    function submitVote(idx) {
+      socket.emit('submitVote', { roomCode: currentRoom, optionIndex: idx });
+      document.getElementById('vote-form').classList.add('hidden');
+      document.getElementById('player-status').innerText = 'Vote recorded! Look at the main screen.';
+    }
+
+    socket.on('showReveal', ({ truth, players }) => {
+      if (isHost) {
+        stopMusic();
+        playRevealSound();
+        setTimeout(() => playWinSound(), 1000);
+
+        document.getElementById('host-status').innerText = '';
+        const revealDiv = document.getElementById('host-reveal');
+        revealDiv.classList.remove('hidden');
+        document.getElementById('next-btn').classList.remove('hidden');
+
+        let leaderboard = Object.values(players)
+          .sort((a, b) => b.score - a.score)
+          .map(p => `<li><strong>${p.name}:</strong> ${p.score} pts</li>`)
+          .join('');
+
+        revealDiv.innerHTML = `
+          <h2 style="color: #00ff88; margin-bottom: 10px;">The Truth: ${truth}</h2>
+          <h3>Leaderboard:</h3>
+          <ul>${leaderboard}</ul>
+        `;
+      }
+    });
+
+    socket.on('errorMsg', (msg) => alert(msg));
+  </script>
+</body>
+</html>
