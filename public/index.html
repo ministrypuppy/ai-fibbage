@@ -7,8 +7,8 @@
   <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
-    body { background: #121212; color: #fff; text-align: center; padding: 20px; }
-    .card { background: #1e1e2e; padding: 25px; border-radius: 12px; max-width: 600px; margin: 20px auto; box-shadow: 0 4px 15px rgba(0,0,0,0.5); position: relative; }
+    body { background: #121212; color: #fff; text-align: center; padding: 20px; transition: background-color 0.3s; }
+    .card { background: #1e1e2e; padding: 25px; border-radius: 12px; max-width: 600px; margin: 20px auto; box-shadow: 0 4px 15px rgba(0,0,0,0.5); position: relative; transition: border 0.3s; }
     h1 { color: #ff0055; margin-bottom: 15px; font-size: 2.2rem; }
     input, button { width: 100%; padding: 14px; margin: 10px 0; border-radius: 8px; border: none; font-size: 1.1rem; }
     input { background: #2a2a3c; color: white; }
@@ -19,22 +19,43 @@
     .hidden { display: none; }
     ul { list-style: none; text-align: left; margin: 10px 0; }
     li { padding: 8px 0; border-bottom: 1px solid #333; }
-    .audio-controls { position: absolute; top: 15px; right: 15px; background: #2a2a3c; padding: 6px 12px; border-radius: 20px; font-size: 0.85rem; cursor: pointer; border: 1px solid #444; }
+    .audio-controls { position: absolute; top: 15px; right: 15px; background: #2a2a3c; padding: 6px 12px; border-radius: 20px; font-size: 0.85rem; cursor: pointer; border: 1px solid #444; z-index: 10; }
     .timer-bar-container { width: 100%; background: #2a2a3c; height: 12px; border-radius: 6px; overflow: hidden; margin: 15px 0; }
     .timer-bar { height: 100%; background: #00e5ff; width: 100%; transition: width 1s linear, background-color 0.3s; }
     .badge { display: inline-block; background: #ff0055; color: #fff; padding: 4px 12px; border-radius: 12px; font-size: 0.9rem; font-weight: bold; margin-bottom: 10px; }
+
+    @keyframes warningPulse {
+      0% { background-color: #121212; }
+      50% { background-color: #3b0010; }
+      100% { background-color: #121212; }
+    }
+    
+    @keyframes cardWarningPulse {
+      0% { border: 2px solid transparent; box-shadow: 0 4px 15px rgba(0,0,0,0.5); }
+      50% { border: 2px solid #ff0055; box-shadow: 0 0 25px rgba(255, 0, 85, 0.6); }
+      100% { border: 2px solid transparent; box-shadow: 0 4px 15px rgba(0,0,0,0.5); }
+    }
+
+    body.urgent-timer {
+      animation: warningPulse 0.8s infinite;
+    }
+
+    body.urgent-timer .card {
+      animation: cardWarningPulse 0.8s infinite;
+    }
   </style>
 </head>
-<body>
+<body onclick="userInteracted()">
 
   <div id="view-landing" class="card">
+    <div class="audio-controls" onclick="toggleMute(event)" id="landing-mute-btn">🔊 Audio: ON</div>
     <h1>BLUFF MASTER</h1>
     <button onclick="showHostSetup()">Host Game (TV / Tablet)</button>
     <button onclick="showPlayerSetup()">Join Game (Phone)</button>
   </div>
 
   <div id="view-host" class="card hidden">
-    <div class="audio-controls" onclick="toggleMute()" id="mute-btn">🔊 Audio: ON</div>
+    <div class="audio-controls" onclick="toggleMute(event)" id="mute-btn">🔊 Audio: ON</div>
     <h1>HOST SCREEN</h1>
     <div id="host-lobby">
       <p>Join at this URL on your phone!</p>
@@ -87,15 +108,27 @@
     let isMuted = false;
     let audioCtx = null;
     let musicInterval = null;
+    let currentPhase = 'LANDING';
+    let currentUrgentState = false;
+
+    function userInteracted() {
+      initAudio();
+      if (currentPhase === 'LANDING' && !musicInterval && !isMuted) {
+        playLandingMusic();
+      }
+    }
 
     function initAudio() {
       if (!audioCtx) {
         audioCtx = new (window.AudioContext || window.webkitAudioContext)();
       }
+      if (audioCtx.state === 'suspended') {
+        audioCtx.resume();
+      }
     }
 
     function playTone(freq, type, duration, delay = 0, vol = 0.1) {
-      if (!isHost || isMuted || !audioCtx) return;
+      if (isMuted || !audioCtx) return;
       setTimeout(() => {
         try {
           const osc = audioCtx.createOscillator();
@@ -119,6 +152,18 @@
       }
     }
 
+    function playLandingMusic() {
+      stopMusic();
+      if (isMuted) return;
+      initAudio();
+      const notes = [196.00, 246.94, 293.66, 369.99, 293.66, 246.94];
+      let step = 0;
+      musicInterval = setInterval(() => {
+        playTone(notes[step % notes.length], 'sine', 0.25, 0, 0.04);
+        step++;
+      }, 260);
+    }
+
     function playLobbyMusic() {
       stopMusic();
       if (!isHost || isMuted) return;
@@ -131,37 +176,79 @@
       }, 300);
     }
 
-    function playThinkingMusic() {
+    function playThinkingMusic(isUrgent = false) {
       stopMusic();
       if (!isHost || isMuted) return;
       initAudio();
-      const notes = [146.83, 174.61, 220.00, 174.61];
+      
+      const notes = isUrgent 
+        ? [220.00, 233.08, 261.63, 233.08]
+        : [146.83, 174.61, 220.00, 174.61];
+      const tempo = isUrgent ? 220 : 500;
+      const type = isUrgent ? 'sawtooth' : 'triangle';
+      const vol = isUrgent ? 0.09 : 0.08;
+
       let step = 0;
       musicInterval = setInterval(() => {
-        playTone(notes[step % notes.length], 'triangle', 0.4, 0, 0.08);
+        playTone(notes[step % notes.length], type, 0.2, 0, vol);
         step++;
-      }, 500);
+      }, tempo);
+    }
+
+    function playGameOverMusic() {
+      stopMusic();
+      if (!isHost || isMuted) return;
+      initAudio();
+      const notes = [329.63, 415.30, 493.88, 659.25, 493.88, 415.30];
+      let step = 0;
+      musicInterval = setInterval(() => {
+        playTone(notes[step % notes.length], 'triangle', 0.3, 0, 0.06);
+        step++;
+      }, 240);
     }
 
     function playJoinSound() { initAudio(); playTone(440, 'sine', 0.1, 0, 0.1); playTone(880, 'sine', 0.15, 80, 0.1); }
     function playTickSound() { initAudio(); playTone(800, 'square', 0.05, 0, 0.03); }
-    function playRevealSound() {
+
+    function playRoundRevealSound(round) {
       initAudio();
-      for (let i = 0; i < 15; i++) playTone(100 + Math.random() * 50, 'sawtooth', 0.05, i * 60, 0.08);
-    }
-    function playWinSound() {
-      initAudio();
-      playTone(523.25, 'triangle', 0.3, 0, 0.1);
-      playTone(659.25, 'triangle', 0.3, 100, 0.1);
-      playTone(783.99, 'triangle', 0.3, 200, 0.1);
-      playTone(1046.50, 'triangle', 0.6, 300, 0.12);
+      if (round <= 3) {
+        playTone(300, 'triangle', 0.2, 0, 0.08);
+        playTone(450, 'triangle', 0.25, 120, 0.08);
+      } else if (round <= 5) {
+        playTone(400, 'sawtooth', 0.15, 0, 0.09);
+        playTone(600, 'sawtooth', 0.15, 90, 0.09);
+        playTone(800, 'sawtooth', 0.3, 180, 0.1);
+      } else {
+        for (let i = 0; i < 18; i++) {
+          playTone(150 + Math.random() * 800, 'square', 0.06, i * 40, 0.08);
+        }
+      }
     }
 
-    function toggleMute() {
+    function playGrandFinaleSound() {
+      initAudio();
+      playTone(523.25, 'triangle', 0.3, 0, 0.12);
+      playTone(659.25, 'triangle', 0.3, 120, 0.12);
+      playTone(783.99, 'triangle', 0.3, 240, 0.12);
+      playTone(1046.50, 'triangle', 0.8, 360, 0.15);
+    }
+
+    function toggleMute(e) {
+      if (e) e.stopPropagation();
       isMuted = !isMuted;
-      document.getElementById('mute-btn').innerText = isMuted ? '🔇 Audio: OFF' : '🔊 Audio: ON';
-      if (isMuted) stopMusic();
-      else if (isHost) playLobbyMusic();
+      const label = isMuted ? '🔇 Audio: OFF' : '🔊 Audio: ON';
+      document.getElementById('mute-btn').innerText = label;
+      document.getElementById('landing-mute-btn').innerText = label;
+
+      if (isMuted) {
+        stopMusic();
+      } else {
+        if (currentPhase === 'LANDING') playLandingMusic();
+        else if (currentPhase === 'LOBBY' && isHost) playLobbyMusic();
+        else if ((currentPhase === 'SUBMITTING' || currentPhase === 'VOTING') && isHost) playThinkingMusic(currentUrgentState);
+        else if (currentPhase === 'GAMEOVER' && isHost) playGameOverMusic();
+      }
     }
 
     function hideAll() {
@@ -172,6 +259,7 @@
 
     function showHostSetup() {
       hideAll();
+      currentPhase = 'LOBBY';
       document.getElementById('view-host').classList.remove('hidden');
       isHost = true;
       initAudio();
@@ -181,6 +269,8 @@
 
     function showPlayerSetup() {
       hideAll();
+      currentPhase = 'PLAYER_JOIN';
+      stopMusic();
       document.getElementById('view-player').classList.remove('hidden');
     }
 
@@ -210,13 +300,26 @@
           bar.style.backgroundColor = timeLeft <= 10 ? '#ff0055' : '#00e5ff';
         }
       });
+
+      if (timeLeft <= 10 && !currentUrgentState) {
+        currentUrgentState = true;
+        document.body.classList.add('urgent-timer');
+        if (isHost) playThinkingMusic(true);
+      } else if (timeLeft > 10 && currentUrgentState) {
+        currentUrgentState = false;
+        document.body.classList.remove('urgent-timer');
+      }
     });
 
     socket.on('newRound', ({ question, currentRound, multiplier }) => {
+      currentPhase = 'SUBMITTING';
+      currentUrgentState = false;
+      document.body.classList.remove('urgent-timer');
+
       const roundLabel = currentRound === 6 ? 'FINAL FIBBAGE (3x Points!)' : `Round ${currentRound}/6 (${multiplier}x Points)`;
 
       if (isHost) {
-        playThinkingMusic();
+        playThinkingMusic(false);
         document.getElementById('host-lobby').classList.add('hidden');
         document.getElementById('host-gameplay').classList.remove('hidden');
         document.getElementById('host-reveal').classList.add('hidden');
@@ -266,6 +369,10 @@
     }
 
     socket.on('startVoting', ({ options }) => {
+      currentPhase = 'VOTING';
+      currentUrgentState = false;
+      document.body.classList.remove('urgent-timer');
+
       if (!isHost) {
         document.getElementById('lie-form').classList.add('hidden');
         document.getElementById('vote-form').classList.remove('hidden');
@@ -273,12 +380,13 @@
         
         const container = document.getElementById('options-container');
         container.innerHTML = options
-          .filter(opt => opt.author !== socket.id) // Filters out the player's own submitted lie
+          .filter(opt => opt.author !== socket.id)
           .map((opt) => {
             const actualIdx = options.findIndex(o => o.text === opt.text && o.author === opt.author);
             return `<button class="option-btn" onclick="submitVote(${actualIdx})">${opt.text}</button>`;
           }).join('');
       } else {
+        playThinkingMusic(false);
         playTickSound();
         document.getElementById('host-status').innerText = 'Voting in progress on phones...';
       }
@@ -290,11 +398,21 @@
       document.getElementById('player-status').innerText = 'Vote recorded! Look at the main screen.';
     }
 
-    socket.on('showReveal', ({ truth, players, isGameOver }) => {
+    socket.on('showReveal', ({ truth, players, currentRound, isGameOver }) => {
+      currentUrgentState = false;
+      document.body.classList.remove('urgent-timer');
+
       if (isHost) {
         stopMusic();
-        playRevealSound();
-        setTimeout(() => playWinSound(), 1000);
+        playRoundRevealSound(currentRound);
+
+        if (isGameOver) {
+          currentPhase = 'GAMEOVER';
+          setTimeout(() => {
+            playGrandFinaleSound();
+            playGameOverMusic();
+          }, 1000);
+        }
 
         document.getElementById('host-status').innerText = '';
         const revealDiv = document.getElementById('host-reveal');
