@@ -48,6 +48,95 @@ async function fetchAIQuestion() {
   };
 }
 
+function clearRoomTimers(room) {
+  if (room.timer) {
+    clearInterval(room.timer);
+    room.timer = null;
+  }
+}
+
+function startPhaseTimer(room, duration, onTick, onExpire) {
+  clearRoomTimers(room);
+  room.timeLeft = duration;
+  onTick(room.timeLeft);
+
+  room.timer = setInterval(() => {
+    room.timeLeft--;
+    onTick(room.timeLeft);
+    if (room.timeLeft <= 0) {
+      clearRoomTimers(room);
+      onExpire();
+    }
+  }, 1000);
+}
+
+function getMultiplier(round) {
+  if (round <= 3) return 1;
+  if (round <= 5) return 2;
+  return 3; // Round 6 (Final Fibbage)
+}
+
+function triggerVotingPhase(room, cleanCode) {
+  clearRoomTimers(room);
+  room.state = 'VOTING';
+  
+  const rawOptions = [{ text: room.currentQuestion.answer, isCorrect: true, author: 'TRUTH' }];
+  Object.entries(room.players).forEach(([id, p]) => {
+    if (p.currentLie.length > 0) {
+      rawOptions.push({ text: p.currentLie, isCorrect: false, author: id });
+    }
+  });
+
+  if (room.currentQuestion.houseLies && room.currentQuestion.houseLies[0]) {
+    rawOptions.push({ text: room.currentQuestion.houseLies[0], isCorrect: false, author: 'HOUSE' });
+  }
+
+  room.options = rawOptions.sort(() => Math.random() - 0.5);
+
+  io.to(cleanCode).emit('startVoting', {
+    question: room.currentQuestion.question,
+    options: room.options,
+    multiplier: room.multiplier
+  });
+
+  startPhaseTimer(
+    room,
+    60,
+    (timeLeft) => io.to(cleanCode).emit('timerUpdate', { timeLeft, phase: 'VOTING' }),
+    () => triggerRevealPhase(room, cleanCode)
+  );
+}
+
+function triggerRevealPhase(room, cleanCode) {
+  clearRoomTimers(room);
+  room.state = 'REVEAL';
+  
+  const baseTruth = 1000 * room.multiplier;
+  const baseFooled = 500 * room.multiplier;
+
+  Object.entries(room.votes).forEach(([voterId, chosenIdx]) => {
+    const chosenOption = room.options[chosenIdx];
+    if (!chosenOption) return;
+    if (chosenOption.isCorrect) {
+      room.players[voterId].score += baseTruth;
+    } else if (chosenOption.author !== 'HOUSE' && chosenOption.author !== voterId) {
+      if (room.players[chosenOption.author]) {
+        room.players[chosenOption.author].score += baseFooled;
+      }
+    }
+  });
+
+  io.to(cleanCode).emit('showReveal', {
+    truth: room.currentQuestion.answer,
+    options: room.options,
+    votes: room.votes,
+    players: room.players,
+    currentRound: room.currentRound,
+    multiplier: room.multiplier,
+    isGameOver: room.currentRound >= 6
+  });
+}
+
 io.on('connection', (socket) => {
   socket.on('createRoom', () => {
     const code = generateRoomCode();
@@ -55,9 +144,13 @@ io.on('connection', (socket) => {
       hostId: socket.id,
       players: {},
       state: 'LOBBY',
+      currentRound: 0,
+      multiplier: 1,
       currentQuestion: null,
       options: [],
-      votes: {}
+      votes: {},
+      timer: null,
+      timeLeft: 0
     };
     socket.join(code);
     socket.emit('roomCreated', { roomCode: code });
@@ -79,7 +172,14 @@ io.on('connection', (socket) => {
     const cleanCode = roomCode ? roomCode.trim().toUpperCase() : '';
     const room = rooms[cleanCode];
     if (!room) return;
-    
+
+    if (room.currentRound >= 6) {
+      room.currentRound = 0;
+      Object.values(room.players).forEach(p => p.score = 0);
+    }
+
+    room.currentRound += 1;
+    room.multiplier = getMultiplier(room.currentRound);
     room.state = 'SUBMITTING';
     room.votes = {};
     Object.keys(room.players).forEach(id => {
@@ -89,13 +189,24 @@ io.on('connection', (socket) => {
     const qData = await fetchAIQuestion();
     room.currentQuestion = qData;
 
-    io.to(cleanCode).emit('newRound', { question: qData.question });
+    io.to(cleanCode).emit('newRound', { 
+      question: qData.question, 
+      currentRound: room.currentRound,
+      multiplier: room.multiplier 
+    });
+
+    startPhaseTimer(
+      room,
+      60,
+      (timeLeft) => io.to(cleanCode).emit('timerUpdate', { timeLeft, phase: 'SUBMITTING' }),
+      () => triggerVotingPhase(room, cleanCode)
+    );
   });
 
   socket.on('submitLie', ({ roomCode, lie }) => {
     const cleanCode = roomCode ? roomCode.trim().toUpperCase() : '';
     const room = rooms[cleanCode];
-    if (!room || !room.players[socket.id]) return;
+    if (!room || !room.players[socket.id] || room.state !== 'SUBMITTING') return;
 
     room.players[socket.id].currentLie = lie.trim();
 
@@ -105,54 +216,20 @@ io.on('connection', (socket) => {
     io.to(room.hostId).emit('hostStatusUpdate', `Submitted: ${submittedCount} / ${playersArray.length}`);
 
     if (submittedCount === playersArray.length && playersArray.length > 0) {
-      room.state = 'VOTING';
-      const rawOptions = [{ text: room.currentQuestion.answer, isCorrect: true, author: 'TRUTH' }];
-      
-      Object.entries(room.players).forEach(([id, p]) => {
-        rawOptions.push({ text: p.currentLie, isCorrect: false, author: id });
-      });
-
-      if (room.currentQuestion.houseLies && room.currentQuestion.houseLies[0]) {
-        rawOptions.push({ text: room.currentQuestion.houseLies[0], isCorrect: false, author: 'HOUSE' });
-      }
-
-      room.options = rawOptions.sort(() => Math.random() - 0.5);
-      
-      io.to(cleanCode).emit('startVoting', {
-        question: room.currentQuestion.question,
-        options: room.options.map(o => o.text)
-      });
+      triggerVotingPhase(room, cleanCode);
     }
   });
 
   socket.on('submitVote', ({ roomCode, optionIndex }) => {
     const cleanCode = roomCode ? roomCode.trim().toUpperCase() : '';
     const room = rooms[cleanCode];
-    if (!room || !room.players[socket.id]) return;
+    if (!room || !room.players[socket.id] || room.state !== 'VOTING') return;
 
     room.votes[socket.id] = optionIndex;
     const playerIds = Object.keys(room.players);
 
     if (Object.keys(room.votes).length === playerIds.length && playerIds.length > 0) {
-      room.state = 'REVEAL';
-      Object.entries(room.votes).forEach(([voterId, chosenIdx]) => {
-        const chosenOption = room.options[chosenIdx];
-        if (!chosenOption) return;
-        if (chosenOption.isCorrect) {
-          room.players[voterId].score += 1000;
-        } else if (chosenOption.author !== 'HOUSE' && chosenOption.author !== voterId) {
-          if (room.players[chosenOption.author]) {
-            room.players[chosenOption.author].score += 500;
-          }
-        }
-      });
-
-      io.to(cleanCode).emit('showReveal', {
-        truth: room.currentQuestion.answer,
-        options: room.options,
-        votes: room.votes,
-        players: room.players
-      });
+      triggerRevealPhase(room, cleanCode);
     }
   });
 
