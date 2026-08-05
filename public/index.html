@@ -1,201 +1,90 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Party Game Arena</title>
   <style>
-    :root {
-      --bg-dark: #0f0c1b;
-      --card-bg: #1d1836;
-      --accent-pink: #ff2a75;
-      --accent-cyan: #00f0ff;
-      --accent-yellow: #ffe600;
-      --text-main: #ffffff;
-      --text-muted: #a09cb0;
-    }
-
-    * {
-      box-sizing: border-box;
-      margin: 0;
-      padding: 0;
-      font-family: 'Impact', 'Arial Black', sans-serif;
-    }
-
-    body {
-      background-color: var(--bg-dark);
-      color: var(--text-main);
-      min-height: 100vh;
-      display: flex;
-      flex-direction: column;
-      justify-content: center;
-      align-items: center;
-      overflow-x: hidden;
-      padding-bottom: 80px;
-    }
-
-    /* Animated Grid Background */
-    body::before {
-      content: '';
-      position: fixed;
-      top: 0; left: 0; right: 0; bottom: 0;
-      background: 
-        linear-gradient(rgba(255, 255, 255, 0.03) 1px, transparent 1px),
-        linear-gradient(90deg, rgba(255, 255, 255, 0.03) 1px, transparent 1px);
-      background-size: 40px 40px;
-      z-index: -1;
-      animation: moveGrid 20s linear infinite;
-    }
-
-    @keyframes moveGrid {
-      0% { background-position: 0 0; }
-      100% { background-position: 40px 40px; }
-    }
-
-    /* Main Menu Card */
-    main {
-      width: 90%;
-      max-width: 500px;
-      text-align: center;
-    }
-
-    .game-card {
-      background: var(--card-bg);
-      border-radius: 20px;
-      padding: 40px 30px;
-      border: 4px solid var(--accent-cyan);
-      box-shadow: 8px 8px 0px var(--accent-pink);
-      animation: floatCard 4s ease-in-out infinite;
-    }
-
-    @keyframes floatCard {
-      0%, 100% { transform: translateY(0px); }
-      50% { transform: translateY(-10px); }
-    }
-
-    .game-title {
-      font-size: 3rem;
-      color: var(--accent-yellow);
-      text-shadow: 4px 4px 0px var(--accent-pink), 6px 6px 0px #000;
-      letter-spacing: 2px;
-      margin-bottom: 30px;
-      text-transform: uppercase;
-    }
-
-    .btn-group {
-      display: flex;
-      flex-direction: column;
-      gap: 15px;
-    }
-
-    .action-btn {
-      background: var(--accent-yellow);
-      color: #000;
-      font-size: 1.5rem;
-      padding: 15px 30px;
-      border: none;
-      border-radius: 12px;
-      cursor: pointer;
-      box-shadow: 0 6px 0 #b3a200;
-      transition: all 0.1s ease;
-      text-transform: uppercase;
-      letter-spacing: 1px;
-      width: 100%;
-    }
-
-    .action-btn.secondary {
-      background: var(--accent-cyan);
-      box-shadow: 0 6px 0 #00a3ae;
-    }
-
-    .action-btn:hover {
-      transform: translateY(-2px);
-    }
-
-    .action-btn:active {
-      transform: translateY(4px);
-      box-shadow: 0 2px 0 #000;
-    }
-
-    /* Input Field for Joining */
-    .room-input {
-      width: 100%;
-      padding: 12px;
-      font-size: 1.2rem;
-      border-radius: 8px;
-      border: 2px solid var(--accent-cyan);
-      background: #0f0c1b;
-      color: #fff;
-      text-align: center;
-      text-transform: uppercase;
-      letter-spacing: 3px;
-      margin-bottom: 10px;
-    }
-
-    .room-input::placeholder {
-      color: var(--text-muted);
-      letter-spacing: 1px;
-    }
-
-    /* Sticky Footer */
-    footer {
-      position: fixed;
-      bottom: 0;
-      left: 0;
-      width: 100%;
-      background: rgba(15, 12, 27, 0.95);
-      border-top: 3px solid var(--accent-cyan);
-      padding: 12px 20px;
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      backdrop-filter: blur(5px);
-      z-index: 100;
-    }
-
-    .footer-title {
-      font-size: 1rem;
-      color: var(--text-muted);
-      letter-spacing: 1.5px;
-    }
-
-    .room-code-badge {
-      background: var(--accent-cyan);
-      color: #000;
-      font-size: 1.8rem;
-      padding: 4px 16px;
-      border-radius: 8px;
-      letter-spacing: 4px;
-      box-shadow: 0 0 10px rgba(0, 240, 255, 0.5);
-    }
+    :root { --bg-dark: #0f0c1b; --card-bg: #1d1836; --accent-pink: #ff2a75; --accent-cyan: #00f0ff; --accent-yellow: #ffe600; --text-main: #ffffff; --text-muted: #a09cb0; }
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Impact', 'Arial Black', sans-serif; }
+    body { background-color: var(--bg-dark); color: var(--text-main); min-height: 100vh; display: flex; flex-direction: column; justify-content: center; align-items: center; overflow: hidden; }
+    body::before { content: ''; position: fixed; inset: 0; background: linear-gradient(rgba(255,255,255,0.03) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.03) 1px, transparent 1px); background-size: 40px 40px; z-index: -1; animation: moveGrid 20s linear infinite; }
+    @keyframes moveGrid { 0% { background-position: 0 0; } 100% { background-position: 40px 40px; } }
+    main { width: 90%; max-width: 450px; text-align: center; }
+    .game-card { background: var(--card-bg); border-radius: 20px; padding: 40px 30px; border: 4px solid var(--accent-cyan); box-shadow: 8px 8px 0px var(--accent-pink); animation: floatCard 4s ease-in-out infinite; }
+    @keyframes floatCard { 0%, 100% { transform: translateY(0px); } 50% { transform: translateY(-8px); } }
+    .game-title { font-size: 2.8rem; color: var(--accent-yellow); text-shadow: 4px 4px 0px var(--accent-pink), 5px 5px 0px #000; letter-spacing: 2px; margin-bottom: 25px; text-transform: uppercase; }
+    .btn-group { display: flex; flex-direction: column; gap: 15px; }
+    .action-btn { background: var(--accent-yellow); color: #000; font-size: 1.4rem; padding: 14px; border: none; border-radius: 12px; cursor: pointer; box-shadow: 0 5px 0 #b3a200; transition: transform 0.1s; text-transform: uppercase; width: 100%; }
+    .action-btn.cyan { background: var(--accent-cyan); box-shadow: 0 5px 0 #00a3ae; }
+    .action-btn:active { transform: translateY(3px); box-shadow: 0 2px 0 #000; }
+    .room-input { width: 100%; padding: 12px; font-size: 1.3rem; border-radius: 8px; border: 2px solid var(--accent-cyan); background: #0f0c1b; color: #fff; text-align: center; text-transform: uppercase; letter-spacing: 4px; margin-bottom: 12px; }
+    .hidden { display: none !important; }
+    .back-btn { background: transparent; border: none; color: var(--text-muted); cursor: pointer; text-decoration: underline; margin-top: 15px; font-size: 0.9rem; }
+    footer { position: fixed; bottom: 0; left: 0; width: 100%; background: rgba(15, 12, 27, 0.95); border-top: 3px solid var(--accent-cyan); padding: 12px 20px; display: flex; justify-content: space-between; align-items: center; backdrop-filter: blur(5px); }
+    .room-code-badge { background: var(--accent-cyan); color: #000; font-size: 1.8rem; padding: 4px 16px; border-radius: 8px; letter-spacing: 4px; }
   </style>
 </head>
 <body>
 
-  <!-- Main Menu Stage -->
   <main>
     <div class="game-card">
       <h1 class="game-title">PARTY GAME</h1>
       
-      <div class="btn-group">
-        <button class="action-btn">Host Game</button>
-        
-        <div style="margin-top: 15px;">
-          <input type="text" class="room-input" placeholder="ENTER ROOM CODE" maxlength="4">
-          <button class="action-btn secondary">Join Game</button>
-        </div>
+      <!-- Screen 1: Main Menu -->
+      <div id="screen-main" class="btn-group">
+        <button class="action-btn" onclick="startHost()">Host Game</button>
+        <button class="action-btn cyan" onclick="showJoin()">Join Game</button>
+      </div>
+
+      <!-- Screen 2: Join Input -->
+      <div id="screen-join" class="btn-group hidden">
+        <input type="text" id="roomCodeInput" class="room-input" placeholder="ENTER CODE" maxlength="4">
+        <button class="action-btn cyan" onclick="submitJoin()">Enter Room</button>
+        <button class="back-btn" onclick="showMain()">← Back</button>
+      </div>
+
+      <!-- Screen 3: Host Lobby -->
+      <div id="screen-host" class="btn-group hidden">
+        <p style="color: var(--accent-cyan); font-size: 1.2rem; margin-bottom: 15px;">WAITING FOR PLAYERS...</p>
+        <button class="action-btn">Start Game</button>
       </div>
     </div>
   </main>
 
-  <!-- Persistent Host Footer -->
-  <footer>
-    <span class="footer-title">JOIN AT <strong>GAME.PARTY</strong></span>
+  <!-- Sticky Footer (Hosts Only) -->
+  <footer id="hostFooter" class="hidden">
+    <span style="color: var(--text-muted)">JOIN AT <strong>GAME.PARTY</strong></span>
     <div>
-      <span class="footer-title" style="margin-right: 10px;">ROOM CODE:</span>
-      <span class="room-code-badge">----</span>
+      <span style="color: var(--text-muted); margin-right: 10px;">ROOM CODE:</span>
+      <span class="room-code-badge" id="displayRoomCode">----</span>
     </div>
   </footer>
 
+  <script>
+    function showMain() {
+      document.getElementById('screen-main').classList.remove('hidden');
+      document.getElementById('screen-join').classList.add('hidden');
+      document.getElementById('screen-host').classList.add('hidden');
+      document.getElementById('hostFooter').classList.add('hidden');
+    }
+
+    function showJoin() {
+      document.getElementById('screen-main').classList.add('hidden');
+      document.getElementById('screen-join').classList.remove('hidden');
+    }
+
+    function startHost() {
+      const code = Math.random().toString(36).substring(2, 6).toUpperCase();
+      document.getElementById('displayRoomCode').innerText = code;
+      document.getElementById('screen-main').classList.add('hidden');
+      document.getElementById('screen-host').classList.remove('hidden');
+      document.getElementById('hostFooter').classList.remove('hidden');
+    }
+
+    function submitJoin() {
+      const code = document.getElementById('roomCodeInput').value;
+      if(code.length === 4) alert('Joining room: ' + code.toUpperCase());
+    }
+  </script>
 </body>
 </html>
