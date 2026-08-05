@@ -28,7 +28,6 @@ const fallbackLies = [
   "Faking a twin to skip work"
 ];
 
-// Curated humorous/risqué questions as fallback/supplement
 const partyTrivia = [
   {
     question: "In 2012, a man in New Zealand was arrested after calling the emergency services to complain about ____.",
@@ -57,6 +56,27 @@ const partyTrivia = [
   }
 ];
 
+const cookieQuotes = {
+  roundStart: [
+    "Welcome back to the clown circus! Let's get some lies on the board.",
+    "Round starting! Try to make your lie sound slightly smarter than you actually are.",
+    "Time for trivia! Or as I call it, making things up and hoping nobody notices."
+  ],
+  votingPhase: [
+    "All lies are in! Let me see who cooked up the best total garbage.",
+    "Locked and loaded. Time to find out who is a master manipulator and who is just bad at typing."
+  ],
+  revealPhase: [
+    "And the truth is revealed! Look at those point tallies shifting.",
+    "Well, well, well... looks like somebody actually knew what they were doing!"
+  ]
+};
+
+function getCookieLine(category) {
+  const lines = cookieQuotes[category];
+  return lines[Math.floor(Math.random() * lines.length)];
+}
+
 function generateRoomCode() {
   const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
   let code = '';
@@ -67,13 +87,11 @@ function generateRoomCode() {
 }
 
 async function fetchAIQuestion() {
-  // 50% chance to pull from curated party trivia pool, 50% from API categories likely to yield silly facts
   if (Math.random() > 0.5) {
     return partyTrivia[Math.floor(Math.random() * partyTrivia.length)];
   }
 
   try {
-    // Categories: General Knowledge (9), Celebrities (26), Animals (27)
     const categories = [9, 26, 27];
     const cat = categories[Math.floor(Math.random() * categories.length)];
     const res = await fetch(`https://opentdb.com/api.php?amount=1&category=${cat}&type=multiple`);
@@ -149,7 +167,8 @@ function triggerVotingPhase(room, cleanCode) {
     question: room.currentQuestion.question,
     options: room.options,
     multiplier: room.multiplier,
-    currentRound: room.currentRound
+    currentRound: room.currentRound,
+    cookieLine: getCookieLine('votingPhase')
   });
 
   startPhaseTimer(
@@ -186,7 +205,8 @@ function triggerRevealPhase(room, cleanCode) {
     players: room.players,
     currentRound: room.currentRound,
     multiplier: room.multiplier,
-    isGameOver: room.currentRound >= 6
+    isGameOver: room.currentRound >= 6,
+    cookieLine: getCookieLine('revealPhase')
   });
 }
 
@@ -245,7 +265,8 @@ io.on('connection', (socket) => {
     io.to(cleanCode).emit('newRound', { 
       question: qData.question, 
       currentRound: room.currentRound,
-      multiplier: room.multiplier 
+      multiplier: room.multiplier,
+      cookieLine: getCookieLine('roundStart')
     });
 
     startPhaseTimer(
