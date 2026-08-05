@@ -71,6 +71,7 @@
 
     <div id="host-gameplay" class="hidden">
       <div id="round-badge" class="badge">Round 1/6 (1x Points)</div>
+      <div id="cookie-subtitle" style="font-style: italic; color: #ff0055; margin: 10px 0; font-size: 1.25rem; font-weight: bold; min-height: 1.5em;"></div>
       <div class="timer-bar-container"><div id="host-timer-bar" class="timer-bar"></div></div>
       <h2 id="host-question" style="color: #00e5ff; margin-bottom: 20px;"></h2>
       <p id="host-status" style="font-size: 1.2rem;"></p>
@@ -118,6 +119,22 @@
     let currentPhase = 'LANDING';
     let currentUrgentState = false;
     let activeRoundNumber = 1;
+
+    function cookieSpeak(text) {
+      if (isMuted || !isHost || !('speechSynthesis' in window)) return;
+
+      window.speechSynthesis.cancel();
+
+      const utterance = new SpeechSynthesisUtterance(text);
+      utterance.pitch = 1.2;
+      utterance.rate = 1.05;
+
+      const voices = window.speechSynthesis.getVoices();
+      const preferredVoice = voices.find(v => v.lang.startsWith('en') && (v.name.includes('Natural') || v.name.includes('Google') || v.name.includes('Samantha')));
+      if (preferredVoice) utterance.voice = preferredVoice;
+
+      window.speechSynthesis.speak(utterance);
+    }
 
     function userInteracted() {
       initAudio();
@@ -192,7 +209,6 @@
       let notes, tempo, type, vol;
 
       if (isFinalRound) {
-        // High stakes intense track for Round 6 (Final Fibbage)
         notes = isUrgent 
           ? [110.00, 116.54, 123.47, 130.81, 123.47, 116.54]
           : [110.00, 130.81, 164.81, 130.81];
@@ -251,6 +267,7 @@
 
       if (isMuted) {
         stopMusic();
+        window.speechSynthesis.cancel();
       } else {
         if (currentPhase === 'LANDING' || currentPhase === 'GAMEOVER') playChillTheme();
         else if (currentPhase === 'LOBBY' && isHost) playLobbyMusic();
@@ -326,7 +343,7 @@
       }
     });
 
-    socket.on('newRound', ({ question, currentRound, multiplier }) => {
+    socket.on('newRound', ({ question, currentRound, multiplier, cookieLine }) => {
       currentPhase = 'SUBMITTING';
       activeRoundNumber = currentRound;
       currentUrgentState = false;
@@ -335,6 +352,10 @@
       const roundLabel = currentRound === 6 ? 'FINAL FIBBAGE (3x Points!)' : `Round ${currentRound}/6 (${multiplier}x Points)`;
 
       if (isHost) {
+        if (cookieLine) {
+          document.getElementById('cookie-subtitle').innerText = `Cookie: "${cookieLine}"`;
+          cookieSpeak(cookieLine);
+        }
         playThinkingMusic(false, currentRound === 6);
         document.getElementById('host-lobby').classList.add('hidden');
         document.getElementById('host-gameplay').classList.remove('hidden');
@@ -385,7 +406,7 @@
       }
     }
 
-    socket.on('startVoting', ({ options, currentRound }) => {
+    socket.on('startVoting', ({ options, currentRound, cookieLine }) => {
       currentPhase = 'VOTING';
       if (currentRound) activeRoundNumber = currentRound;
       currentUrgentState = false;
@@ -404,6 +425,10 @@
             return `<button class="option-btn" onclick="submitVote(${actualIdx})">${opt.text}</button>`;
           }).join('');
       } else {
+        if (cookieLine) {
+          document.getElementById('cookie-subtitle').innerText = `Cookie: "${cookieLine}"`;
+          cookieSpeak(cookieLine);
+        }
         playThinkingMusic(false, activeRoundNumber === 6);
         playTickSound();
         document.getElementById('host-status').innerText = 'Voting in progress on phones...';
@@ -416,13 +441,18 @@
       document.getElementById('player-status').innerText = 'Vote recorded! Look at the main screen.';
     }
 
-    socket.on('showReveal', ({ truth, players, currentRound, isGameOver }) => {
+    socket.on('showReveal', ({ truth, players, currentRound, isGameOver, cookieLine }) => {
       currentUrgentState = false;
       document.body.classList.remove('urgent-timer');
 
       if (isHost) {
         stopMusic();
         playRoundRevealSound(currentRound);
+
+        if (cookieLine) {
+          document.getElementById('cookie-subtitle').innerText = `Cookie: "${cookieLine}"`;
+          cookieSpeak(cookieLine);
+        }
 
         if (isGameOver) {
           currentPhase = 'GAMEOVER';
