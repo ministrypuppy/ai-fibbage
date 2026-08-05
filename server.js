@@ -18,14 +18,43 @@ app.get('/', (req, res) => {
 const rooms = {};
 
 const fallbackLies = [
-  "Sailing around the world solo",
-  "Secretly owning a farm",
-  "Professional juggling",
-  "Eating 50 hot dogs",
-  "Building a giant Lego tower",
-  "Inventing the toaster",
-  "Training pigeons",
-  "Winning a spelling bee"
+  "Accidentally joining a cult",
+  "Selling fake bath salts",
+  "Getting banned from a buffet",
+  "Challenging a bear to arm wrestling",
+  "Stealing a police horse while drunk",
+  "Wearing a fake mustache to a job interview",
+  "Smuggling exotic ferrets in pants",
+  "Faking a twin to skip work"
+];
+
+// Curated humorous/risqué questions as fallback/supplement
+const partyTrivia = [
+  {
+    question: "In 2012, a man in New Zealand was arrested after calling the emergency services to complain about ____.",
+    answer: "bad weed quality",
+    houseLies: ["his prostitute being late", "cold McDonald's fries", "a missing cat"]
+  },
+  {
+    question: "Before inventing the telephone, Alexander Graham Bell suggested answering phone calls with the phrase ____.",
+    answer: "Ahoy",
+    houseLies: ["What's crackin'", "Howdy pardner", "Speak human"]
+  },
+  {
+    question: "In 2017, a UK man legally changed his name to ____ after losing a drunk bet.",
+    answer: "Bacon Double Cheeseburger",
+    houseLies: ["Captain Underpants", "Lord Voldemort", "Sir Mix-A-Lot"]
+  },
+  {
+    question: "In 1998, a French court ruled that employees could not be fired for ____ during work hours.",
+    answer: "having a brief affair",
+    houseLies: ["drinking wine", "napping under desks", "swearing at bosses"]
+  },
+  {
+    question: "To discourage drunk driving, a bar in Texas instituted a policy where patrons had to pass a ____ test before leaving.",
+    answer: "unicycle riding",
+    houseLies: ["tongue twister", "line dancing", "origami"]
+  }
 ];
 
 function generateRoomCode() {
@@ -38,8 +67,16 @@ function generateRoomCode() {
 }
 
 async function fetchAIQuestion() {
+  // 50% chance to pull from curated party trivia pool, 50% from API categories likely to yield silly facts
+  if (Math.random() > 0.5) {
+    return partyTrivia[Math.floor(Math.random() * partyTrivia.length)];
+  }
+
   try {
-    const res = await fetch('https://opentdb.com/api.php?amount=1&type=multiple');
+    // Categories: General Knowledge (9), Celebrities (26), Animals (27)
+    const categories = [9, 26, 27];
+    const cat = categories[Math.floor(Math.random() * categories.length)];
+    const res = await fetch(`https://opentdb.com/api.php?amount=1&category=${cat}&type=multiple`);
     if (!res.ok) throw new Error('API error');
     const data = await res.json();
     if (data.results && data.results.length > 0) {
@@ -52,11 +89,8 @@ async function fetchAIQuestion() {
       };
     }
   } catch (err) {}
-  return {
-    question: "In 1912, an Olympic athlete was forced to forfeit his medals after playing professional ____.",
-    answer: "Baseball",
-    houseLies: ["Cricket", "Lacrosse", "Basketball"]
-  };
+
+  return partyTrivia[Math.floor(Math.random() * partyTrivia.length)];
 }
 
 function clearRoomTimers(room) {
@@ -91,7 +125,6 @@ function triggerVotingPhase(room, cleanCode) {
   clearRoomTimers(room);
   room.state = 'VOTING';
   
-  // Auto-generate lies for players who didn't submit in time
   Object.entries(room.players).forEach(([id, p]) => {
     if (!p.currentLie || p.currentLie.length === 0) {
       const randomLie = fallbackLies[Math.floor(Math.random() * fallbackLies.length)];
@@ -115,7 +148,8 @@ function triggerVotingPhase(room, cleanCode) {
   io.to(cleanCode).emit('startVoting', {
     question: room.currentQuestion.question,
     options: room.options,
-    multiplier: room.multiplier
+    multiplier: room.multiplier,
+    currentRound: room.currentRound
   });
 
   startPhaseTimer(
