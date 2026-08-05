@@ -193,14 +193,20 @@
     }
 
     socket.on('roomCreated', ({ roomCode }) => {
-      currentRoom = roomCode;
-      document.getElementById('room-code-display').innerText = roomCode;
+      currentRoom = roomCode.toUpperCase();
+      document.getElementById('room-code-display').innerText = currentRoom;
     });
 
     socket.on('updatePlayers', (players) => {
       playJoinSound();
       const list = document.getElementById('player-list');
       list.innerHTML = players.map(p => `<li>${p.name} - ${p.score} pts</li>`).join('');
+    });
+
+    socket.on('hostStatusUpdate', (msg) => {
+      if (isHost) {
+        document.getElementById('host-status').innerText = msg;
+      }
     });
 
     socket.on('newRound', ({ question }) => {
@@ -227,7 +233,7 @@
     }
 
     function joinRoom() {
-      const code = document.getElementById('join-code').value.trim();
+      const code = document.getElementById('join-code').value.trim().toUpperCase();
       const name = document.getElementById('join-name').value.trim();
       if (code && name) {
         currentRoom = code;
@@ -235,7 +241,8 @@
       }
     }
 
-    socket.on('joinedSuccess', () => {
+    socket.on('joinedSuccess', ({ roomCode }) => {
+      currentRoom = roomCode.toUpperCase();
       document.getElementById('player-join').classList.add('hidden');
       document.getElementById('player-gameplay').classList.remove('hidden');
       document.getElementById('player-status').innerText = 'Connected! Waiting for host...';
