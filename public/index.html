@@ -7,7 +7,7 @@
   <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
-    body { background: #121212; color: #fff; text-align: center; padding: 20px; transition: background-color 0.3s; }
+    body { background: #121212; color: #fff; text-align: center; padding: 20px; transition: background-color 0.3s; padding-bottom: 60px; }
     .card { background: #1e1e2e; padding: 25px; border-radius: 12px; max-width: 600px; margin: 20px auto; box-shadow: 0 4px 15px rgba(0,0,0,0.5); position: relative; transition: border 0.3s; }
     h1 { color: #ff0055; margin-bottom: 15px; font-size: 2.2rem; }
     input, button { width: 100%; padding: 14px; margin: 10px 0; border-radius: 8px; border: none; font-size: 1.1rem; }
@@ -23,6 +23,9 @@
     .timer-bar-container { width: 100%; background: #2a2a3c; height: 12px; border-radius: 6px; overflow: hidden; margin: 15px 0; }
     .timer-bar { height: 100%; background: #00e5ff; width: 100%; transition: width 1s linear, background-color 0.3s; }
     .badge { display: inline-block; background: #ff0055; color: #fff; padding: 4px 12px; border-radius: 12px; font-size: 0.9rem; font-weight: bold; margin-bottom: 10px; }
+    
+    .room-code-footer { position: fixed; bottom: 0; left: 0; width: 100%; background: #181824; padding: 8px; font-size: 0.9rem; color: #888; border-top: 1px solid #2a2a3c; z-index: 100; }
+    .room-code-footer span { color: #00e5ff; font-weight: bold; letter-spacing: 2px; font-size: 1rem; }
 
     @keyframes warningPulse {
       0% { background-color: #121212; }
@@ -101,6 +104,10 @@
     </div>
   </div>
 
+  <div id="footer-code" class="room-code-footer hidden">
+    ROOM CODE: <span id="footer-code-display">----</span>
+  </div>
+
   <script>
     const socket = io();
     let currentRoom = '';
@@ -113,8 +120,8 @@
 
     function userInteracted() {
       initAudio();
-      if (currentPhase === 'LANDING' && !musicInterval && !isMuted) {
-        playLandingMusic();
+      if ((currentPhase === 'LANDING' || currentPhase === 'GAMEOVER') && !musicInterval && !isMuted) {
+        playChillTheme();
       }
     }
 
@@ -152,7 +159,8 @@
       }
     }
 
-    function playLandingMusic() {
+    // Standard Chill Theme used for Landing Screen & Game-Over Waiting Screen
+    function playChillTheme() {
       stopMusic();
       if (isMuted) return;
       initAudio();
@@ -195,18 +203,6 @@
       }, tempo);
     }
 
-    function playGameOverMusic() {
-      stopMusic();
-      if (!isHost || isMuted) return;
-      initAudio();
-      const notes = [329.63, 415.30, 493.88, 659.25, 493.88, 415.30];
-      let step = 0;
-      musicInterval = setInterval(() => {
-        playTone(notes[step % notes.length], 'triangle', 0.3, 0, 0.06);
-        step++;
-      }, 240);
-    }
-
     function playJoinSound() { initAudio(); playTone(440, 'sine', 0.1, 0, 0.1); playTone(880, 'sine', 0.15, 80, 0.1); }
     function playTickSound() { initAudio(); playTone(800, 'square', 0.05, 0, 0.03); }
 
@@ -244,10 +240,9 @@
       if (isMuted) {
         stopMusic();
       } else {
-        if (currentPhase === 'LANDING') playLandingMusic();
+        if (currentPhase === 'LANDING' || currentPhase === 'GAMEOVER') playChillTheme();
         else if (currentPhase === 'LOBBY' && isHost) playLobbyMusic();
         else if ((currentPhase === 'SUBMITTING' || currentPhase === 'VOTING') && isHost) playThinkingMusic(currentUrgentState);
-        else if (currentPhase === 'GAMEOVER' && isHost) playGameOverMusic();
       }
     }
 
@@ -274,9 +269,17 @@
       document.getElementById('view-player').classList.remove('hidden');
     }
 
+    function updateFooterCode(code) {
+      if (code) {
+        document.getElementById('footer-code-display').innerText = code;
+        document.getElementById('footer-code').classList.remove('hidden');
+      }
+    }
+
     socket.on('roomCreated', ({ roomCode }) => {
       currentRoom = roomCode.toUpperCase();
       document.getElementById('room-code-display').innerText = currentRoom;
+      updateFooterCode(currentRoom);
     });
 
     socket.on('updatePlayers', (players) => {
@@ -290,7 +293,7 @@
     });
 
     socket.on('timerUpdate', ({ timeLeft }) => {
-      const pct = (timeLeft / 60) * 100;
+      const pct = (timeLeft / 45) * 100;
       const hostBar = document.getElementById('host-timer-bar');
       const playerBar = document.getElementById('player-timer-bar');
       
@@ -353,6 +356,7 @@
 
     socket.on('joinedSuccess', ({ roomCode }) => {
       currentRoom = roomCode.toUpperCase();
+      updateFooterCode(currentRoom);
       document.getElementById('player-join').classList.add('hidden');
       document.getElementById('player-gameplay').classList.remove('hidden');
       document.getElementById('player-status').innerText = 'Connected! Waiting for host...';
@@ -410,8 +414,8 @@
           currentPhase = 'GAMEOVER';
           setTimeout(() => {
             playGrandFinaleSound();
-            playGameOverMusic();
-          }, 1000);
+            playChillTheme();
+          }, 1200);
         }
 
         document.getElementById('host-status').innerText = '';
