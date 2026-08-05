@@ -2,17 +2,18 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Party Game Arena</title>
+  <title>FoolSchool</title>
+  <script src="/socket.io/socket.io.js"></script>
   <style>
     :root { --bg-dark: #0f0c1b; --card-bg: #1d1836; --accent-pink: #ff2a75; --accent-cyan: #00f0ff; --accent-yellow: #ffe600; --text-main: #ffffff; --text-muted: #a09cb0; }
     * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Impact', 'Arial Black', sans-serif; }
     body { background-color: var(--bg-dark); color: var(--text-main); min-height: 100vh; display: flex; flex-direction: column; justify-content: center; align-items: center; overflow: hidden; }
     body::before { content: ''; position: fixed; inset: 0; background: linear-gradient(rgba(255,255,255,0.03) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.03) 1px, transparent 1px); background-size: 40px 40px; z-index: -1; animation: moveGrid 20s linear infinite; }
     @keyframes moveGrid { 0% { background-position: 0 0; } 100% { background-position: 40px 40px; } }
-    main { width: 90%; max-width: 450px; text-align: center; }
+    main { width: 90%; max-width: 500px; text-align: center; }
     .game-card { background: var(--card-bg); border-radius: 20px; padding: 40px 30px; border: 4px solid var(--accent-cyan); box-shadow: 8px 8px 0px var(--accent-pink); animation: floatCard 4s ease-in-out infinite; }
     @keyframes floatCard { 0%, 100% { transform: translateY(0px); } 50% { transform: translateY(-8px); } }
-    .game-title { font-size: 2.8rem; color: var(--accent-yellow); text-shadow: 4px 4px 0px var(--accent-pink), 5px 5px 0px #000; letter-spacing: 2px; margin-bottom: 25px; text-transform: uppercase; }
+    .game-title { font-size: 3rem; color: var(--accent-yellow); text-shadow: 4px 4px 0px var(--accent-pink), 5px 5px 0px #000; letter-spacing: 2px; margin-bottom: 25px; text-transform: uppercase; }
     .btn-group { display: flex; flex-direction: column; gap: 12px; }
     .action-btn { background: var(--accent-yellow); color: #000; font-size: 1.4rem; padding: 14px; border: none; border-radius: 12px; cursor: pointer; box-shadow: 0 5px 0 #b3a200; transition: transform 0.1s; text-transform: uppercase; width: 100%; }
     .action-btn.cyan { background: var(--accent-cyan); box-shadow: 0 5px 0 #00a3ae; }
@@ -20,7 +21,14 @@
     .room-input { width: 100%; padding: 12px; font-size: 1.2rem; border-radius: 8px; border: 2px solid var(--accent-cyan); background: #0f0c1b; color: #fff; text-align: center; text-transform: uppercase; letter-spacing: 2px; }
     .hidden { display: none !important; }
     .back-btn { background: transparent; border: none; color: var(--text-muted); cursor: pointer; text-decoration: underline; margin-top: 10px; font-size: 0.9rem; }
-    footer { position: fixed; bottom: 0; left: 0; width: 100%; background: rgba(15, 12, 27, 0.95); border-top: 3px solid var(--accent-cyan); padding: 12px 20px; display: flex; justify-content: space-between; align-items: center; backdrop-filter: blur(5px); }
+    .center-code-box { background: #0f0c1b; border: 2px dashed var(--accent-cyan); border-radius: 12px; padding: 15px; margin: 15px 0; }
+    .center-code-title { color: var(--text-muted); font-size: 0.9rem; letter-spacing: 1px; margin-bottom: 5px; }
+    .center-code-val { color: var(--accent-yellow); font-size: 2.5rem; letter-spacing: 6px; text-shadow: 2px 2px #000; }
+    .player-list { list-style: none; margin: 15px 0; font-size: 1.2rem; color: var(--accent-yellow); display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; }
+    .player-chip { background: #0f0c1b; border: 1px solid var(--accent-pink); padding: 6px 14px; border-radius: 20px; }
+    .timer-container { background: var(--card-bg); border: 3px solid var(--accent-pink); border-radius: 50px; padding: 8px 25px; display: inline-flex; align-items: center; gap: 10px; box-shadow: 0 0 15px rgba(255, 42, 117, 0.4); margin-bottom: 20px; }
+    .timer-count { font-size: 2rem; color: var(--accent-yellow); }
+    footer { position: fixed; bottom: 0; left: 0; width: 100%; background: rgba(15, 12, 27, 0.95); border-top: 3px solid var(--accent-cyan); padding: 12px 20px; display: flex; justify-content: flex-end; align-items: center; backdrop-filter: blur(5px); }
     .room-code-badge { background: var(--accent-cyan); color: #000; font-size: 1.8rem; padding: 4px 16px; border-radius: 8px; letter-spacing: 4px; }
     .error-msg { color: var(--accent-pink); font-size: 0.9rem; margin-bottom: 5px; }
   </style>
@@ -29,40 +37,55 @@
 
   <main>
     <div class="game-card">
-      <h1 class="game-title">PARTY GAME</h1>
+      <h1 class="game-title">FoolSchool</h1>
       
-      <!-- Screen 1: Main Menu -->
+      <!-- Main Menu -->
       <div id="screen-main" class="btn-group">
         <button class="action-btn" onclick="startHost()">Host Game</button>
         <button class="action-btn cyan" onclick="showJoin()">Join Game</button>
       </div>
 
-      <!-- Screen 2: Join Input (Name + Code) -->
+      <!-- Join Screen -->
       <div id="screen-join" class="btn-group hidden">
         <p id="errorText" class="error-msg hidden">PLEASE ENTER A NAME AND CODE</p>
         <input type="text" id="playerNameInput" class="room-input" placeholder="YOUR NAME">
-        <input type="text" id="roomCodeInput" class="room-input" placeholder="ROOM CODE">
+        <input type="text" id="roomCodeInput" class="room-input" placeholder="ROOM CODE" maxlength="4">
         <button class="action-btn cyan" onclick="submitJoin()">Enter Room</button>
         <button class="back-btn" onclick="showMain()">← Back</button>
       </div>
 
-      <!-- Screen 3: Host Lobby -->
+      <!-- Host Lobby -->
       <div id="screen-host" class="btn-group hidden">
-        <p style="color: var(--accent-cyan); font-size: 1.2rem; margin-bottom: 15px;">WAITING FOR PLAYERS...</p>
-        <button class="action-btn">Start Game</button>
+        <div class="center-code-box">
+          <p class="center-code-title">ROOM CODE</p>
+          <p class="center-code-val" id="centerRoomCode">----</p>
+        </div>
+        <p style="color: var(--accent-cyan); font-size: 1.1rem;">CONNECTED PLAYERS:</p>
+        <div class="player-list" id="hostPlayerList"></div>
+        <button class="action-btn" onclick="launchGame()">Start Game</button>
       </div>
 
-      <!-- Screen 4: Player Lobby -->
+      <!-- Player Lobby -->
       <div id="screen-player-lobby" class="btn-group hidden">
         <p style="color: var(--accent-yellow); font-size: 1.5rem;" id="playerWelcome">YOU'RE IN!</p>
         <p style="color: var(--text-muted); font-size: 1rem; margin-top: 10px;">WAITING FOR HOST TO START...</p>
       </div>
+
+      <!-- Active Game Screen -->
+      <div id="screen-gameplay" class="btn-group hidden">
+        <div class="timer-container">
+          <span style="color: var(--accent-pink); font-size: 1rem;">TIME</span>
+          <span class="timer-count">45</span>
+        </div>
+        <p style="color: var(--accent-cyan); font-size: 1rem; letter-spacing: 2px;">CURRENT PROMPT</p>
+        <h2 style="font-size: 1.8rem; margin: 15px 0; line-height: 1.2;">"Explain a simple concept using only complete nonsense words."</h2>
+        <button class="action-btn">Submit Answer</button>
+      </div>
     </div>
   </main>
 
-  <!-- Sticky Footer (Hosts Only) -->
+  <!-- Bottom Footer (Shows only during active gameplay) -->
   <footer id="hostFooter" class="hidden">
-    <span style="color: var(--text-muted)">JOIN AT <strong>GAME.PARTY</strong></span>
     <div>
       <span style="color: var(--text-muted); margin-right: 10px;">ROOM CODE:</span>
       <span class="room-code-badge" id="displayRoomCode">----</span>
@@ -70,42 +93,76 @@
   </footer>
 
   <script>
+    const socket = io();
+    let currentRoom = '';
+
+    function hideAll() {
+      ['screen-main', 'screen-join', 'screen-host', 'screen-player-lobby', 'screen-gameplay', 'hostFooter', 'errorText']
+        .forEach(id => document.getElementById(id).classList.add('hidden'));
+    }
+
     function showMain() {
+      hideAll();
       document.getElementById('screen-main').classList.remove('hidden');
-      document.getElementById('screen-join').classList.add('hidden');
-      document.getElementById('screen-host').classList.add('hidden');
-      document.getElementById('screen-player-lobby').classList.add('hidden');
-      document.getElementById('hostFooter').classList.add('hidden');
-      document.getElementById('errorText').classList.add('hidden');
     }
 
     function showJoin() {
-      document.getElementById('screen-main').classList.add('hidden');
+      hideAll();
       document.getElementById('screen-join').classList.remove('hidden');
     }
 
     function startHost() {
-      const code = Math.random().toString(36).substring(2, 6).toUpperCase();
-      document.getElementById('displayRoomCode').innerText = code;
-      document.getElementById('screen-main').classList.add('hidden');
-      document.getElementById('screen-host').classList.remove('hidden');
-      document.getElementById('hostFooter').classList.remove('hidden');
+      socket.emit('createRoom');
     }
 
     function submitJoin() {
       const name = document.getElementById('playerNameInput').value.trim();
-      const code = document.getElementById('roomCodeInput').value.trim();
-      
+      const code = document.getElementById('roomCodeInput').value.trim().toUpperCase();
+
       if (!name || !code) {
         document.getElementById('errorText').classList.remove('hidden');
         return;
       }
-      
-      document.getElementById('errorText').classList.add('hidden');
-      document.getElementById('playerWelcome').innerText = `WELCOME, ${name.toUpperCase()}!`;
-      document.getElementById('screen-join').classList.add('hidden');
-      document.getElementById('screen-player-lobby').classList.remove('hidden');
+      socket.emit('joinRoom', { roomCode: code, playerName: name });
     }
+
+    function launchGame() {
+      socket.emit('startGame', { roomCode: currentRoom });
+    }
+
+    /* Socket Listener Events */
+    socket.on('roomCreated', (code) => {
+      currentRoom = code;
+      document.getElementById('centerRoomCode').innerText = code;
+      document.getElementById('displayRoomCode').innerText = code;
+      hideAll();
+      document.getElementById('screen-host').classList.remove('hidden');
+    });
+
+    socket.on('joinSuccess', (data) => {
+      currentRoom = data.roomCode;
+      document.getElementById('playerWelcome').innerText = `WELCOME, ${data.playerName.toUpperCase()}!`;
+      document.getElementById('displayRoomCode').innerText = data.roomCode;
+      hideAll();
+      document.getElementById('screen-player-lobby').classList.remove('hidden');
+    });
+
+    socket.on('updatePlayerList', (players) => {
+      const list = document.getElementById('hostPlayerList');
+      list.innerHTML = players.map(p => `<span class="player-chip">${p}</span>`).join('');
+    });
+
+    socket.on('gameStarted', () => {
+      hideAll();
+      document.getElementById('screen-gameplay').classList.remove('hidden');
+      document.getElementById('hostFooter').classList.remove('hidden');
+    });
+
+    socket.on('errorMsg', (msg) => {
+      const err = document.getElementById('errorText');
+      err.innerText = msg;
+      err.classList.remove('hidden');
+    });
   </script>
 </body>
 </html>
