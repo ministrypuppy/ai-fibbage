@@ -73,7 +73,7 @@ function startPhaseTimer(room, duration, onTick, onExpire) {
 function getMultiplier(round) {
   if (round <= 3) return 1;
   if (round <= 5) return 2;
-  return 3; // Round 6 (Final Fibbage)
+  return 3;
 }
 
 function triggerVotingPhase(room, cleanCode) {
