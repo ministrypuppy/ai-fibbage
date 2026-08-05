@@ -10,7 +10,9 @@ const io = new Server(server);
 app.use(express.static(path.join(__dirname, 'public')));
 
 app.get('/', (req, res) => {
-  res.sendFile(path.join(__dirname, 'public', 'index.html'));
+  res.sendFile(path.join(__dirname, 'public', 'index.html'), {
+    headers: { 'Content-Type': 'text/html' }
+  });
 });
 
 const rooms = {};
@@ -38,9 +40,7 @@ async function fetchAIQuestion() {
         houseLies: q.incorrect_answers.map(clean)
       };
     }
-  } catch (err) {
-    console.log('Trivia API fallback used:', err.message);
-  }
+  } catch (err) {}
   return {
     question: "In 1912, an Olympic athlete was forced to forfeit his medals after playing professional ____.",
     answer: "Baseball",
