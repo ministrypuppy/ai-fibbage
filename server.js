@@ -28,7 +28,6 @@ const fallbackLies = [
   "Faking a twin to skip work"
 ];
 
-// Curated humorous/risqué questions as fallback/supplement
 const partyTrivia = [
   {
     question: "In 2012, a man in New Zealand was arrested after calling the emergency services to complain about ____.",
@@ -67,13 +66,11 @@ function generateRoomCode() {
 }
 
 async function fetchAIQuestion() {
-  // 50% chance to pull from curated party trivia pool, 50% from API categories likely to yield silly facts
   if (Math.random() > 0.5) {
     return partyTrivia[Math.floor(Math.random() * partyTrivia.length)];
   }
 
   try {
-    // Categories: General Knowledge (9), Celebrities (26), Animals (27)
     const categories = [9, 26, 27];
     const cat = categories[Math.floor(Math.random() * categories.length)];
     const res = await fetch(`https://opentdb.com/api.php?amount=1&category=${cat}&type=multiple`);
