@@ -93,7 +93,9 @@ io.on('connection', (socket) => {
     if (!room || !room.players[socket.id]) return;
 
     room.players[socket.id].currentLie = lie.trim();
-    const allSubmitted = Object.values(room.players).every(p => p.currentLie.length > 0);
+    
+    const playerList = Object.values(room.players);
+    const allSubmitted = playerList.length > 0 && playerList.every(p => p.currentLie.length > 0);
 
     if (allSubmitted) {
       room.state = 'VOTING';
@@ -101,7 +103,7 @@ io.on('connection', (socket) => {
       Object.entries(room.players).forEach(([id, p]) => {
         rawOptions.push({ text: p.currentLie, isCorrect: false, author: id });
       });
-      if (room.currentQuestion.houseLies[0]) {
+      if (room.currentQuestion.houseLies && room.currentQuestion.houseLies[0]) {
         rawOptions.push({ text: room.currentQuestion.houseLies[0], isCorrect: false, author: 'HOUSE' });
       }
 
@@ -118,7 +120,8 @@ io.on('connection', (socket) => {
     if (!room || !room.players[socket.id]) return;
 
     room.votes[socket.id] = optionIndex;
-    const allVoted = Object.keys(room.votes).length === Object.keys(room.players).length;
+    const playerList = Object.keys(room.players);
+    const allVoted = playerList.length > 0 && playerList.every(id => room.votes[id] !== undefined);
 
     if (allVoted) {
       room.state = 'REVEAL';
