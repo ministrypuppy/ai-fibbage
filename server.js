@@ -17,6 +17,17 @@ app.get('/', (req, res) => {
 
 const rooms = {};
 
+const fallbackLies = [
+  "Sailing around the world solo",
+  "Secretly owning a farm",
+  "Professional juggling",
+  "Eating 50 hot dogs",
+  "Building a giant Lego tower",
+  "Inventing the toaster",
+  "Training pigeons",
+  "Winning a spelling bee"
+];
+
 function generateRoomCode() {
   const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
   let code = '';
@@ -80,6 +91,14 @@ function triggerVotingPhase(room, cleanCode) {
   clearRoomTimers(room);
   room.state = 'VOTING';
   
+  // Auto-generate lies for players who didn't submit in time
+  Object.entries(room.players).forEach(([id, p]) => {
+    if (!p.currentLie || p.currentLie.length === 0) {
+      const randomLie = fallbackLies[Math.floor(Math.random() * fallbackLies.length)];
+      p.currentLie = randomLie;
+    }
+  });
+
   const rawOptions = [{ text: room.currentQuestion.answer, isCorrect: true, author: 'TRUTH' }];
   Object.entries(room.players).forEach(([id, p]) => {
     if (p.currentLie.length > 0) {
@@ -101,7 +120,7 @@ function triggerVotingPhase(room, cleanCode) {
 
   startPhaseTimer(
     room,
-    60,
+    45,
     (timeLeft) => io.to(cleanCode).emit('timerUpdate', { timeLeft, phase: 'VOTING' }),
     () => triggerRevealPhase(room, cleanCode)
   );
@@ -197,7 +216,7 @@ io.on('connection', (socket) => {
 
     startPhaseTimer(
       room,
-      60,
+      45,
       (timeLeft) => io.to(cleanCode).emit('timerUpdate', { timeLeft, phase: 'SUBMITTING' }),
       () => triggerVotingPhase(room, cleanCode)
     );
