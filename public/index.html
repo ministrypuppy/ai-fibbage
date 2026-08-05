@@ -117,6 +117,7 @@
     let musicInterval = null;
     let currentPhase = 'LANDING';
     let currentUrgentState = false;
+    let activeRoundNumber = 1;
 
     function userInteracted() {
       initAudio();
@@ -159,7 +160,6 @@
       }
     }
 
-    // Standard Chill Theme used for Landing Screen & Game-Over Waiting Screen
     function playChillTheme() {
       stopMusic();
       if (isMuted) return;
@@ -184,17 +184,29 @@
       }, 300);
     }
 
-    function playThinkingMusic(isUrgent = false) {
+    function playThinkingMusic(isUrgent = false, isFinalRound = false) {
       stopMusic();
       if (!isHost || isMuted) return;
       initAudio();
-      
-      const notes = isUrgent 
-        ? [220.00, 233.08, 261.63, 233.08]
-        : [146.83, 174.61, 220.00, 174.61];
-      const tempo = isUrgent ? 220 : 500;
-      const type = isUrgent ? 'sawtooth' : 'triangle';
-      const vol = isUrgent ? 0.09 : 0.08;
+
+      let notes, tempo, type, vol;
+
+      if (isFinalRound) {
+        // High stakes intense track for Round 6 (Final Fibbage)
+        notes = isUrgent 
+          ? [110.00, 116.54, 123.47, 130.81, 123.47, 116.54]
+          : [110.00, 130.81, 164.81, 130.81];
+        tempo = isUrgent ? 140 : 280;
+        type = 'sawtooth';
+        vol = isUrgent ? 0.12 : 0.1;
+      } else {
+        notes = isUrgent 
+          ? [220.00, 233.08, 261.63, 233.08]
+          : [146.83, 174.61, 220.00, 174.61];
+        tempo = isUrgent ? 220 : 500;
+        type = isUrgent ? 'sawtooth' : 'triangle';
+        vol = isUrgent ? 0.09 : 0.08;
+      }
 
       let step = 0;
       musicInterval = setInterval(() => {
@@ -242,7 +254,7 @@
       } else {
         if (currentPhase === 'LANDING' || currentPhase === 'GAMEOVER') playChillTheme();
         else if (currentPhase === 'LOBBY' && isHost) playLobbyMusic();
-        else if ((currentPhase === 'SUBMITTING' || currentPhase === 'VOTING') && isHost) playThinkingMusic(currentUrgentState);
+        else if ((currentPhase === 'SUBMITTING' || currentPhase === 'VOTING') && isHost) playThinkingMusic(currentUrgentState, activeRoundNumber === 6);
       }
     }
 
@@ -307,7 +319,7 @@
       if (timeLeft <= 10 && !currentUrgentState) {
         currentUrgentState = true;
         document.body.classList.add('urgent-timer');
-        if (isHost) playThinkingMusic(true);
+        if (isHost) playThinkingMusic(true, activeRoundNumber === 6);
       } else if (timeLeft > 10 && currentUrgentState) {
         currentUrgentState = false;
         document.body.classList.remove('urgent-timer');
@@ -316,13 +328,14 @@
 
     socket.on('newRound', ({ question, currentRound, multiplier }) => {
       currentPhase = 'SUBMITTING';
+      activeRoundNumber = currentRound;
       currentUrgentState = false;
       document.body.classList.remove('urgent-timer');
 
       const roundLabel = currentRound === 6 ? 'FINAL FIBBAGE (3x Points!)' : `Round ${currentRound}/6 (${multiplier}x Points)`;
 
       if (isHost) {
-        playThinkingMusic(false);
+        playThinkingMusic(false, currentRound === 6);
         document.getElementById('host-lobby').classList.add('hidden');
         document.getElementById('host-gameplay').classList.remove('hidden');
         document.getElementById('host-reveal').classList.add('hidden');
@@ -372,8 +385,9 @@
       }
     }
 
-    socket.on('startVoting', ({ options }) => {
+    socket.on('startVoting', ({ options, currentRound }) => {
       currentPhase = 'VOTING';
+      if (currentRound) activeRoundNumber = currentRound;
       currentUrgentState = false;
       document.body.classList.remove('urgent-timer');
 
@@ -390,7 +404,7 @@
             return `<button class="option-btn" onclick="submitVote(${actualIdx})">${opt.text}</button>`;
           }).join('');
       } else {
-        playThinkingMusic(false);
+        playThinkingMusic(false, activeRoundNumber === 6);
         playTickSound();
         document.getElementById('host-status').innerText = 'Voting in progress on phones...';
       }
