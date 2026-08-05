@@ -28,13 +28,13 @@
       min-height: 100vh;
       display: flex;
       flex-direction: column;
-      justify-content: space-between;
+      justify-content: center;
       align-items: center;
       overflow-x: hidden;
-      padding-bottom: 80px; /* Space for sticky footer */
+      padding-bottom: 80px;
     }
 
-    /* Subtle Animated Background Grid */
+    /* Animated Grid Background */
     body::before {
       content: '';
       position: fixed;
@@ -52,84 +52,47 @@
       100% { background-position: 40px 40px; }
     }
 
-    /* Top Bar & Timer */
-    header {
-      width: 100%;
-      padding: 20px;
-      display: flex;
-      justify-content: center;
-      align-items: center;
-    }
-
-    .timer-container {
-      background: var(--card-bg);
-      border: 3px solid var(--accent-pink);
-      border-radius: 50px;
-      padding: 10px 30px;
-      display: flex;
-      align-items: center;
-      gap: 15px;
-      box-shadow: 0 0 15px rgba(255, 42, 117, 0.4);
-      animation: pulseBorder 1.5s infinite alternate;
-    }
-
-    .timer-label {
-      font-size: 1.2rem;
-      color: var(--accent-pink);
-      letter-spacing: 2px;
-    }
-
-    .timer-count {
-      font-size: 2.5rem;
-      color: var(--accent-yellow);
-      text-shadow: 2px 2px #000;
-    }
-
-    /* Main Content Arena */
+    /* Main Menu Card */
     main {
       width: 90%;
-      max-width: 800px;
-      margin: auto;
+      max-width: 500px;
       text-align: center;
     }
 
     .game-card {
       background: var(--card-bg);
       border-radius: 20px;
-      padding: 40px 20px;
+      padding: 40px 30px;
       border: 4px solid var(--accent-cyan);
       box-shadow: 8px 8px 0px var(--accent-pink);
-      transform: translateY(0);
       animation: floatCard 4s ease-in-out infinite;
     }
 
     @keyframes floatCard {
-      0%, 100% { transform: translateY(0px) rotate(0deg); }
-      50% { transform: translateY(-10px) rotate(0.5deg); }
+      0%, 100% { transform: translateY(0px); }
+      50% { transform: translateY(-10px); }
     }
 
-    .prompt-title {
-      font-size: 1.2rem;
-      color: var(--accent-cyan);
-      letter-spacing: 3px;
-      margin-bottom: 10px;
+    .game-title {
+      font-size: 3rem;
+      color: var(--accent-yellow);
+      text-shadow: 4px 4px 0px var(--accent-pink), 6px 6px 0px #000;
+      letter-spacing: 2px;
+      margin-bottom: 30px;
       text-transform: uppercase;
     }
 
-    .prompt-text {
-      font-size: 2.2rem;
-      line-height: 1.2;
-      color: var(--text-main);
-      text-shadow: 3px 3px 0px #000;
+    .btn-group {
+      display: flex;
+      flex-direction: column;
+      gap: 15px;
     }
 
-    /* Buttons / Interactive Elements */
     .action-btn {
-      margin-top: 30px;
       background: var(--accent-yellow);
       color: #000;
       font-size: 1.5rem;
-      padding: 15px 40px;
+      padding: 15px 30px;
       border: none;
       border-radius: 12px;
       cursor: pointer;
@@ -137,19 +100,44 @@
       transition: all 0.1s ease;
       text-transform: uppercase;
       letter-spacing: 1px;
+      width: 100%;
+    }
+
+    .action-btn.secondary {
+      background: var(--accent-cyan);
+      box-shadow: 0 6px 0 #00a3ae;
     }
 
     .action-btn:hover {
       transform: translateY(-2px);
-      box-shadow: 0 8px 0 #b3a200;
     }
 
     .action-btn:active {
       transform: translateY(4px);
-      box-shadow: 0 2px 0 #b3a200;
+      box-shadow: 0 2px 0 #000;
     }
 
-    /* Permanent Sticky Footer for Room Code */
+    /* Input Field for Joining */
+    .room-input {
+      width: 100%;
+      padding: 12px;
+      font-size: 1.2rem;
+      border-radius: 8px;
+      border: 2px solid var(--accent-cyan);
+      background: #0f0c1b;
+      color: #fff;
+      text-align: center;
+      text-transform: uppercase;
+      letter-spacing: 3px;
+      margin-bottom: 10px;
+    }
+
+    .room-input::placeholder {
+      color: var(--text-muted);
+      letter-spacing: 1px;
+    }
+
+    /* Sticky Footer */
     footer {
       position: fixed;
       bottom: 0;
@@ -180,30 +168,23 @@
       letter-spacing: 4px;
       box-shadow: 0 0 10px rgba(0, 240, 255, 0.5);
     }
-
-    /* Keyframe Animations */
-    @keyframes pulseBorder {
-      0% { box-shadow: 0 0 10px rgba(255, 42, 117, 0.4); }
-      100% { box-shadow: 0 0 25px rgba(255, 42, 117, 0.8); }
-    }
   </style>
 </head>
 <body>
 
-  <!-- Top Timer -->
-  <header>
-    <div class="timer-container">
-      <span class="timer-label">TIME</span>
-      <span class="timer-count" id="timer">45</span>
-    </div>
-  </header>
-
-  <!-- Main Game Stage -->
+  <!-- Main Menu Stage -->
   <main>
     <div class="game-card">
-      <p class="prompt-title">Current Prompt</p>
-      <h1 class="prompt-text">"Explain a simple concept using only complete nonsense words."</h1>
-      <button class="action-btn">Submit Answer</button>
+      <h1 class="game-title">PARTY GAME</h1>
+      
+      <div class="btn-group">
+        <button class="action-btn">Host Game</button>
+        
+        <div style="margin-top: 15px;">
+          <input type="text" class="room-input" placeholder="ENTER ROOM CODE" maxlength="4">
+          <button class="action-btn secondary">Join Game</button>
+        </div>
+      </div>
     </div>
   </main>
 
@@ -212,7 +193,7 @@
     <span class="footer-title">JOIN AT <strong>GAME.PARTY</strong></span>
     <div>
       <span class="footer-title" style="margin-right: 10px;">ROOM CODE:</span>
-      <span class="room-code-badge">X9K2</span>
+      <span class="room-code-badge">----</span>
     </div>
   </footer>
 
