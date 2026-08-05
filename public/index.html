@@ -20,6 +20,9 @@
     ul { list-style: none; text-align: left; margin: 10px 0; }
     li { padding: 8px 0; border-bottom: 1px solid #333; }
     .audio-controls { position: absolute; top: 15px; right: 15px; background: #2a2a3c; padding: 6px 12px; border-radius: 20px; font-size: 0.85rem; cursor: pointer; border: 1px solid #444; }
+    .timer-bar-container { width: 100%; background: #2a2a3c; height: 12px; border-radius: 6px; overflow: hidden; margin: 15px 0; }
+    .timer-bar { height: 100%; background: #00e5ff; width: 100%; transition: width 1s linear, background-color 0.3s; }
+    .badge { display: inline-block; background: #ff0055; color: #fff; padding: 4px 12px; border-radius: 12px; font-size: 0.9rem; font-weight: bold; margin-bottom: 10px; }
   </style>
 </head>
 <body>
@@ -43,6 +46,8 @@
     </div>
 
     <div id="host-gameplay" class="hidden">
+      <div id="round-badge" class="badge">Round 1/6 (1x Points)</div>
+      <div class="timer-bar-container"><div id="host-timer-bar" class="timer-bar"></div></div>
       <h2 id="host-question" style="color: #00e5ff; margin-bottom: 20px;"></h2>
       <p id="host-status" style="font-size: 1.2rem;"></p>
       <div id="host-reveal" class="hidden"></div>
@@ -59,6 +64,8 @@
     </div>
 
     <div id="player-gameplay" class="hidden">
+      <div id="player-round-badge" class="badge">Round 1/6</div>
+      <div class="timer-bar-container"><div id="player-timer-bar" class="timer-bar"></div></div>
       <p id="player-status" style="color: #00e5ff; font-weight: bold; margin-bottom: 15px;"></p>
       
       <div id="lie-form">
@@ -136,24 +143,12 @@
       }, 500);
     }
 
-    function playJoinSound() {
-      initAudio();
-      playTone(440, 'sine', 0.1, 0, 0.1);
-      playTone(880, 'sine', 0.15, 80, 0.1);
-    }
-
-    function playTickSound() {
-      initAudio();
-      playTone(800, 'square', 0.05, 0, 0.03);
-    }
-
+    function playJoinSound() { initAudio(); playTone(440, 'sine', 0.1, 0, 0.1); playTone(880, 'sine', 0.15, 80, 0.1); }
+    function playTickSound() { initAudio(); playTone(800, 'square', 0.05, 0, 0.03); }
     function playRevealSound() {
       initAudio();
-      for (let i = 0; i < 15; i++) {
-        playTone(100 + Math.random() * 50, 'sawtooth', 0.05, i * 60, 0.08);
-      }
+      for (let i = 0; i < 15; i++) playTone(100 + Math.random() * 50, 'sawtooth', 0.05, i * 60, 0.08);
     }
-
     function playWinSound() {
       initAudio();
       playTone(523.25, 'triangle', 0.3, 0, 0.1);
@@ -165,11 +160,8 @@
     function toggleMute() {
       isMuted = !isMuted;
       document.getElementById('mute-btn').innerText = isMuted ? '🔇 Audio: OFF' : '🔊 Audio: ON';
-      if (isMuted) {
-        stopMusic();
-      } else if (isHost) {
-        playLobbyMusic();
-      }
+      if (isMuted) stopMusic();
+      else if (isHost) playLobbyMusic();
     }
 
     function hideAll() {
@@ -204,18 +196,32 @@
     });
 
     socket.on('hostStatusUpdate', (msg) => {
-      if (isHost) {
-        document.getElementById('host-status').innerText = msg;
-      }
+      if (isHost) document.getElementById('host-status').innerText = msg;
     });
 
-    socket.on('newRound', ({ question }) => {
+    socket.on('timerUpdate', ({ timeLeft }) => {
+      const pct = (timeLeft / 60) * 100;
+      const hostBar = document.getElementById('host-timer-bar');
+      const playerBar = document.getElementById('player-timer-bar');
+      
+      [hostBar, playerBar].forEach(bar => {
+        if (bar) {
+          bar.style.width = pct + '%';
+          bar.style.backgroundColor = timeLeft <= 10 ? '#ff0055' : '#00e5ff';
+        }
+      });
+    });
+
+    socket.on('newRound', ({ question, currentRound, multiplier }) => {
+      const roundLabel = currentRound === 6 ? 'FINAL FIBBAGE (3x Points!)' : `Round ${currentRound}/6 (${multiplier}x Points)`;
+
       if (isHost) {
         playThinkingMusic();
         document.getElementById('host-lobby').classList.add('hidden');
         document.getElementById('host-gameplay').classList.remove('hidden');
         document.getElementById('host-reveal').classList.add('hidden');
         document.getElementById('next-btn').classList.add('hidden');
+        document.getElementById('round-badge').innerText = roundLabel;
         document.getElementById('host-question').innerText = question;
         document.getElementById('host-status').innerText = 'Waiting for player lies...';
       } else {
@@ -223,6 +229,7 @@
         document.getElementById('player-gameplay').classList.remove('hidden');
         document.getElementById('lie-form').classList.remove('hidden');
         document.getElementById('vote-form').classList.add('hidden');
+        document.getElementById('player-round-badge').innerText = roundLabel;
         document.getElementById('player-status').innerText = question;
         document.getElementById('lie-input').value = '';
       }
@@ -263,10 +270,14 @@
         document.getElementById('lie-form').classList.add('hidden');
         document.getElementById('vote-form').classList.remove('hidden');
         document.getElementById('player-status').innerText = 'Vote for the TRUTH!';
+        
         const container = document.getElementById('options-container');
-        container.innerHTML = options.map((opt, idx) => `
-          <button class="option-btn" onclick="submitVote(${idx})">${opt}</button>
-        `).join('');
+        container.innerHTML = options
+          .filter(opt => opt.author !== socket.id) // Filters out the player's own submitted lie
+          .map((opt) => {
+            const actualIdx = options.findIndex(o => o.text === opt.text && o.author === opt.author);
+            return `<button class="option-btn" onclick="submitVote(${actualIdx})">${opt.text}</button>`;
+          }).join('');
       } else {
         playTickSound();
         document.getElementById('host-status').innerText = 'Voting in progress on phones...';
@@ -279,7 +290,7 @@
       document.getElementById('player-status').innerText = 'Vote recorded! Look at the main screen.';
     }
 
-    socket.on('showReveal', ({ truth, players }) => {
+    socket.on('showReveal', ({ truth, players, isGameOver }) => {
       if (isHost) {
         stopMusic();
         playRevealSound();
@@ -288,7 +299,10 @@
         document.getElementById('host-status').innerText = '';
         const revealDiv = document.getElementById('host-reveal');
         revealDiv.classList.remove('hidden');
-        document.getElementById('next-btn').classList.remove('hidden');
+        
+        const nextBtn = document.getElementById('next-btn');
+        nextBtn.classList.remove('hidden');
+        nextBtn.innerText = isGameOver ? 'Play Again' : 'Next Round';
 
         let leaderboard = Object.values(players)
           .sort((a, b) => b.score - a.score)
