@@ -54,6 +54,8 @@
 
     #host-watermark-footer { display: none; position: fixed; bottom: 8px; left: 15px; background: rgba(0,0,0,0.6); border: 1px solid rgba(254, 202, 87, 0.4); padding: 4px 12px; border-radius: 8px; font-size: 0.8rem; font-weight: 700; color: #feca57; letter-spacing: 1px; z-index: 9999; pointer-events: none; }
 
+    #ai-config-box { background: rgba(0,0,0,0.2); padding: 12px; border-radius: 10px; margin-bottom: 15px; text-align: left; }
+
     @keyframes pulseRed { from { transform: scale(1); } to { transform: scale(1.1); } }
   </style>
 </head>
@@ -75,6 +77,13 @@
   <div id="screen-host-lobby" class="screen">
     <h2>Room Code</h2>
     <div class="code-box" id="host-code-display">...</div>
+    
+    <div id="ai-config-box">
+      <label style="font-size: 0.85rem; color: #feca57; font-weight: 700; display: block; margin-bottom: 5px;">Groq API Key (Free, enables AI Voice/Host):</label>
+      <input type="password" id="groq-api-key-input" class="input-field" placeholder="gsk_..." style="margin-bottom: 0; font-size: 0.95rem; padding: 8px;" />
+      <span style="font-size: 0.75rem; color: #a0a0c0; display: block; margin-top: 4px;">Leave blank to use dynamic procedural backup commentary.</span>
+    </div>
+
     <p class="subtitle">Joined Players (<span id="player-count">0</span>):</p>
     <div class="player-list" id="host-player-list"></div>
     <button class="btn btn-host" onclick="startFibbageGame()">Start Game</button>
@@ -247,84 +256,140 @@
       musicType = 'none';
     }
 
-    /* 10,000 UNIQUE SPOKEN INTRO PHRASES */
-    const uniqueSpokenIntros = [
-      "Welcome to Fool School, let's see who survives.", "Class is officially in session, try not to fail.", "Strap in everyone, time to test your deception skills.",
-      "Greetings players, let's separate the liars from the legends.", "Welcome aboard, prepare your best fibs right now.", "Let the games begin, may the craftiest liar win today.",
-      "Get ready for some serious trickery and deception.", "Welcome to the ultimate test of wits and white lies.", "Let's see who can fool their friends the best tonight.",
-      "Class is in session, and cheating is not only allowed, it's required.", "Welcome back, time to dive headfirst into chaos.", "Prepare yourselves for maximum psychological warfare.",
-      "Let's see if anyone here can actually spot an honest truth.", "Welcome to the arena of absolute nonsense and deceit.", "Strap in, because this round is about to get wild."
-    ];
-    // Procedurally expand uniqueSpokenIntros to exactly 10,000 unique interesting spoken variations dynamically
-    for (let i = uniqueSpokenIntros.length; i < 10000; i++) {
-      uniqueSpokenIntros.push(`Variant commentary number ${i + 1}: Let's see how everyone handles this next bizarre twist.`);
-    }
-
-    const categoryIntroPhrases = [
-      "Your next category to conquer is", "Moving forward, look closely at", "This round's specific theme revolves around", "Pay attention to this category:"
-    ];
-
-    const truthRevealPhrases = [
-      "The actual undeniable truth was revealed as", "Against all odds, the real answer turned out to be", "Believe it or not, the absolute truth was"
-    ];
-
-    const disasterRevealPhrases = [
-      "Absolute disaster, absolutely nobody found the actual truth, which was", "Total failure across the board, the real answer was"
-    ];
-
-    const winningPhrases = [
-      "is absolutely dominating the scoreboard right now.", "is pulling ahead with an impressive lead.", "is currently reigning supreme over the class."
-    ];
-
-    const gameOverPhrases = [
-      "The game has officially concluded. Let's crown our ultimate champion.", "That's a wrap on today's session. Let's see who takes home the gold."
-    ];
-
     let maleVoice = null;
     function loadMaleVoice() {
       const voices = window.speechSynthesis.getVoices();
-      maleVoice = voices.find(v => v.lang.startsWith('en') && (v.name.includes('Natural') || v.name.includes('Google US English') || v.name.includes('Microsoft David') || v.name.includes('Microsoft Mark') || v.name.includes('Ryan') || v.name.includes('Oliver') || v.name.includes('Guy'))) ||
-                  voices.find(v => v.lang.startsWith('en') && v.name.toLowerCase().includes('male')) ||
+      // Specifically target natural deep male English voices
+      maleVoice = voices.find(v => v.lang.startsWith('en') && (v.name.includes('David') || v.name.includes('Mark') || v.name.includes('George') || v.name.includes('Ryan') || v.name.includes('Oliver') || v.name.includes('Guy') || v.name.includes('Natural') || v.name.toLowerCase().includes('male'))) ||
                   voices.find(v => v.lang.startsWith('en')) || null;
     }
     window.speechSynthesis.onvoiceschanged = loadMaleVoice;
     loadMaleVoice();
 
-    function getUniqueSpokenText(category, subType, customData = "") {
-      let phrase = "";
-      if (subType === 'welcome') {
-        const randIdx = Math.floor(Math.random() * uniqueSpokenIntros.length);
-        phrase = uniqueSpokenIntros[randIdx];
-      } else if (subType === 'category') {
-        const p1 = categoryIntroPhrases[Math.floor(Math.random() * categoryIntroPhrases.length)];
-        phrase = `${p1} ${category}. Write your best lie now.`;
-      } else if (subType === 'truth_success') {
-        const p1 = truthRevealPhrases[Math.floor(Math.random() * truthRevealPhrases.length)];
-        phrase = `${p1} ${customData}.`;
-      } else if (subType === 'truth_fail') {
-        const p1 = disasterRevealPhrases[Math.floor(Math.random() * disasterRevealPhrases.length)];
-        phrase = `${p1} ${customData}.`;
-      } else if (subType === 'leaderboard') {
-        const p1 = winningPhrases[Math.floor(Math.random() * winningPhrases.length)];
-        phrase = `${customData} ${p1}`;
-      } else if (subType === 'gameover') {
-        const p1 = gameOverPhrases[Math.floor(Math.random() * gameOverPhrases.length)];
-        phrase = `${p1} ${customData}`;
-      }
-      return phrase;
-    }
+    let recentPhrasesHistory = [];
 
-    function speakAnnouncer(category, subType, customData = "") {
+    async function speakAnnouncer(category, subType, customData = "") {
       if (!isHost) return;
       if (!('speechSynthesis' in window)) return;
       window.speechSynthesis.cancel();
-      
-      const textToSpeak = getUniqueSpokenText(category, subType, customData);
+
+      let textToSpeak = "";
+      const apiKey = document.getElementById('groq-api-key-input')?.value.trim();
+
+      if (apiKey) {
+        try {
+          textToSpeak = await fetchGroqHostCommentary(category, subType, customData, apiKey);
+        } catch (err) {
+          console.warn("Groq API fallback triggered:", err);
+        }
+      }
+
+      if (!textToSpeak) {
+        textToSpeak = getFallbackProceduralText(category, subType, customData);
+      }
+
       const utter = new SpeechSynthesisUtterance(textToSpeak);
       if (maleVoice) utter.voice = maleVoice;
-      utter.pitch = 0.85;
-      utter.rate = 1.0;  
+      utter.pitch = 0.78; // Deeper, natural male game show host pitch
+      utter.rate = 1.02;  
       window.speechSynthesis.speak(utter);
+    }
+
+    async function fetchGroqHostCommentary(category, subType, customData, apiKey) {
+      const systemPrompt = "You are a witty, charismatic, slightly sarcastic male game show host for a bluffing trivia game called Fool School. Keep your spoken lines brief (1 to 2 sentences max), punchy, and completely unique every single time. Never repeat phrases.";
+      let userPrompt = "";
+
+      if (subType === 'welcome') {
+        userPrompt = `Give a unique welcome greeting to start the show. Additional context: ${customData}`;
+      } else if (subType === 'category') {
+        userPrompt = `Announce the next category: "${category}". Additional context: ${customData}`;
+      } else if (subType === 'truth_success') {
+        userPrompt = `Announce that players successfully found the truth, which was "${customData}".`;
+      } else if (subType === 'truth_fail') {
+        userPrompt = `Announce that everyone was fooled and nobody found the truth, which was "${customData}".`;
+      } else if (subType === 'leaderboard') {
+        userPrompt = `Announce that player "${customData}" is currently leading the pack.`;
+      } else if (subType === 'gameover') {
+        userPrompt = `Announce the final winner of the game: "${customData}".`;
+      }
+
+      const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+        method: "POST",
+        headers: {
+          "Authorization": `Bearer ${apiKey}`,
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          model: "llama-3.1-8b-instant",
+          messages: [
+            { role: "system", content: systemPrompt },
+            { role: "user", content: userPrompt }
+          ],
+          temperature: 0.95,
+          max_tokens: 60
+        })
+      });
+
+      if (!response.ok) throw new Error("Groq API request failed");
+      const data = await response.json();
+      const output = data.choices?.[0]?.message?.content?.trim();
+      return output || "";
+    }
+
+    function getFallbackProceduralText(category, subType, customData) {
+      let candidate = "";
+      let attempts = 0;
+
+      const intros = [
+        "Welcome back to Fool School, let's see who can lie their way to the top.",
+        "Class is officially in session. Time to separate the geniuses from the gullible.",
+        "Strap in everyone, because this round is about to get wildly unpredictable.",
+        "Greetings players, prepare your best fibs and watch your backs.",
+        "Welcome to the ultimate arena of nonsense, deception, and wits."
+      ];
+
+      const catIntros = [
+        `Your next category is ${category}. Write your best convincing lie right now.`,
+        `Moving right along, let's look into ${category}. Don't get caught out.`,
+        `This round's theme is ${category}. Time to fool your friends.`
+      ];
+
+      const successIntros = [
+        `Believe it or not, the actual undeniable truth was ${customData}.`,
+        `Against all odds, the real answer turned out to be ${customData}.`,
+        `The real truth was right there: ${customData}.`
+      ];
+
+      const failIntros = [
+        `Absolute disaster across the board! Nobody found the truth, which was ${customData}.`,
+        `Total failure from everyone! The real answer was actually ${customData}.`
+      ];
+
+      const leadIntros = [
+        `${customData} is currently dominating the leaderboard with an impressive lead.`,
+        `${customData} is pulling ahead of the class right now.`
+      ];
+
+      const overIntros = [
+        `That concludes today's session. Let's crown our ultimate champion: ${customData}.`,
+        `Game over! Let's see who takes home the gold today: ${customData}.`
+      ];
+
+      while (attempts < 20) {
+        if (subType === 'welcome') candidate = intros[Math.floor(Math.random() * intros.length)];
+        else if (subType === 'category') candidate = catIntros[Math.floor(Math.random() * catIntros.length)];
+        else if (subType === 'truth_success') candidate = successIntros[Math.floor(Math.random() * successIntros.length)];
+        else if (subType === 'truth_fail') candidate = failIntros[Math.floor(Math.random() * failIntros.length)];
+        else if (subType === 'leaderboard') candidate = leadIntros[Math.floor(Math.random() * leadIntros.length)];
+        else if (subType === 'gameover') candidate = overIntros[Math.floor(Math.random() * overIntros.length)];
+
+        if (!recentPhrasesHistory.includes(candidate)) break;
+        attempts++;
+      }
+
+      recentPhrasesHistory.push(candidate);
+      if (recentPhrasesHistory.length > 15) recentPhrasesHistory.shift();
+      return candidate;
     }
 
     let isHost = false;
@@ -345,7 +410,6 @@
     let previousRosterNames = [];
     let seriesWinTally = {}; 
 
-    /* 1,000 UNIQUE CATEGORIES GENERATOR (Explicitly avoiding 'after dark chronicles' and 'Category #XXX' labels) */
     const baseCategoryNouns = [
       "Midnight Confessions", "Questionable Decisions", "Bizarre Suburbs", "Underground Markets", 
       "Weird Laws", "Unusual Heists", "Local Legends", "Oddities & Antics", "Dubious Habits",
@@ -357,7 +421,6 @@
     for (let i = 0; i < baseCategoryNouns.length; i++) {
       uniqueCategories.push(baseCategoryNouns[i]);
     }
-    // Expand to exactly 1,000 unique human-readable categories
     const modifiers = ["Surreal", "Secret", "Forbidden", "Wild", "Bizarre", "Unfiltered", "Unspoken", "Chaotic", "Absurd", "Notorious"];
     const themes = ["Chronicles", "Files", "Incidents", "Mishaps", "Secrets", "Confessions", "Tales", "Reports", "Anomalies", "Sketches"];
     
@@ -410,7 +473,6 @@
     function generateUniqueQuestion() {
       let attempts = 0;
       while (attempts < 500) {
-        // Targets the 1,000 unique categories with 50,000 unique algorithmic permutations per category (Total 50,000,000 combinatorial pool space)
         const catIdx = Math.floor(Math.random() * uniqueCategories.length);
         const dynamicCat = uniqueCategories[catIdx];
         
@@ -574,7 +636,7 @@
       peer.on('open', () => {
         renderHostLobby();
         showScreen('screen-host-lobby');
-        speakAnnouncer("", 'welcome');
+        speakAnnouncer("", 'welcome', "Welcome everyone to Fool School.");
       });
 
       peer.on('connection', (conn) => {
@@ -590,7 +652,7 @@
           players.push({ name: data.name, score: 0, currentLie: '', currentVote: '' });
           playSound('click');
           broadcastSound('click');
-          speakAnnouncer("", 'welcome', `${data.name} just joined the room.`);
+          speakAnnouncer("", 'welcome', `${data.name} just entered the room.`);
         } else {
           existingPlayer.connection = conn;
         }
@@ -654,7 +716,7 @@
       broadcastSound('click');
       const botName = "Bot_" + (players.length + 1);
       players.push({ name: botName, score: 0, currentLie: '', currentVote: '' });
-      speakAnnouncer("", 'welcome', `Added bot player ${botName}.`);
+      speakAnnouncer("", 'welcome', `Bot player ${botName} has joined the game.`);
       renderHostLobby();
       broadcastToAll({ type: 'SYNC_PLAYERS', players });
     }
