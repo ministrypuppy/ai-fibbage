@@ -54,8 +54,6 @@
 
     #host-watermark-footer { display: none; position: fixed; bottom: 8px; left: 15px; background: rgba(0,0,0,0.6); border: 1px solid rgba(254, 202, 87, 0.4); padding: 4px 12px; border-radius: 8px; font-size: 0.8rem; font-weight: 700; color: #feca57; letter-spacing: 1px; z-index: 9999; pointer-events: none; }
 
-    #ai-config-box { background: rgba(0,0,0,0.2); padding: 12px; border-radius: 10px; margin-bottom: 15px; text-align: left; }
-
     @keyframes pulseRed { from { transform: scale(1); } to { transform: scale(1.1); } }
   </style>
 </head>
@@ -77,13 +75,6 @@
   <div id="screen-host-lobby" class="screen">
     <h2>Room Code</h2>
     <div class="code-box" id="host-code-display">...</div>
-    
-    <div id="ai-config-box">
-      <label style="font-size: 0.85rem; color: #feca57; font-weight: 700; display: block; margin-bottom: 5px;">Groq API Key (Free, enables AI Voice/Host):</label>
-      <input type="password" id="groq-api-key-input" class="input-field" placeholder="gsk_..." style="margin-bottom: 0; font-size: 0.95rem; padding: 8px;" />
-      <span style="font-size: 0.75rem; color: #a0a0c0; display: block; margin-top: 4px;">Leave blank to use dynamic procedural backup commentary.</span>
-    </div>
-
     <p class="subtitle">Joined Players (<span id="player-count">0</span>):</p>
     <div class="player-list" id="host-player-list"></div>
     <button class="btn btn-host" onclick="startFibbageGame()">Start Game</button>
@@ -256,142 +247,6 @@
       musicType = 'none';
     }
 
-    let maleVoice = null;
-    function loadMaleVoice() {
-      const voices = window.speechSynthesis.getVoices();
-      // Specifically target natural deep male English voices
-      maleVoice = voices.find(v => v.lang.startsWith('en') && (v.name.includes('David') || v.name.includes('Mark') || v.name.includes('George') || v.name.includes('Ryan') || v.name.includes('Oliver') || v.name.includes('Guy') || v.name.includes('Natural') || v.name.toLowerCase().includes('male'))) ||
-                  voices.find(v => v.lang.startsWith('en')) || null;
-    }
-    window.speechSynthesis.onvoiceschanged = loadMaleVoice;
-    loadMaleVoice();
-
-    let recentPhrasesHistory = [];
-
-    async function speakAnnouncer(category, subType, customData = "") {
-      if (!isHost) return;
-      if (!('speechSynthesis' in window)) return;
-      window.speechSynthesis.cancel();
-
-      let textToSpeak = "";
-      const apiKey = document.getElementById('groq-api-key-input')?.value.trim();
-
-      if (apiKey) {
-        try {
-          textToSpeak = await fetchGroqHostCommentary(category, subType, customData, apiKey);
-        } catch (err) {
-          console.warn("Groq API fallback triggered:", err);
-        }
-      }
-
-      if (!textToSpeak) {
-        textToSpeak = getFallbackProceduralText(category, subType, customData);
-      }
-
-      const utter = new SpeechSynthesisUtterance(textToSpeak);
-      if (maleVoice) utter.voice = maleVoice;
-      utter.pitch = 0.78; // Deeper, natural male game show host pitch
-      utter.rate = 1.02;  
-      window.speechSynthesis.speak(utter);
-    }
-
-    async function fetchGroqHostCommentary(category, subType, customData, apiKey) {
-      const systemPrompt = "You are a witty, charismatic, slightly sarcastic male game show host for a bluffing trivia game called Fool School. Keep your spoken lines brief (1 to 2 sentences max), punchy, and completely unique every single time. Never repeat phrases.";
-      let userPrompt = "";
-
-      if (subType === 'welcome') {
-        userPrompt = `Give a unique welcome greeting to start the show. Additional context: ${customData}`;
-      } else if (subType === 'category') {
-        userPrompt = `Announce the next category: "${category}". Additional context: ${customData}`;
-      } else if (subType === 'truth_success') {
-        userPrompt = `Announce that players successfully found the truth, which was "${customData}".`;
-      } else if (subType === 'truth_fail') {
-        userPrompt = `Announce that everyone was fooled and nobody found the truth, which was "${customData}".`;
-      } else if (subType === 'leaderboard') {
-        userPrompt = `Announce that player "${customData}" is currently leading the pack.`;
-      } else if (subType === 'gameover') {
-        userPrompt = `Announce the final winner of the game: "${customData}".`;
-      }
-
-      const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
-        method: "POST",
-        headers: {
-          "Authorization": `Bearer ${apiKey}`,
-          "Content-Type": "application/json"
-        },
-        body: JSON.stringify({
-          model: "llama-3.1-8b-instant",
-          messages: [
-            { role: "system", content: systemPrompt },
-            { role: "user", content: userPrompt }
-          ],
-          temperature: 0.95,
-          max_tokens: 60
-        })
-      });
-
-      if (!response.ok) throw new Error("Groq API request failed");
-      const data = await response.json();
-      const output = data.choices?.[0]?.message?.content?.trim();
-      return output || "";
-    }
-
-    function getFallbackProceduralText(category, subType, customData) {
-      let candidate = "";
-      let attempts = 0;
-
-      const intros = [
-        "Welcome back to Fool School, let's see who can lie their way to the top.",
-        "Class is officially in session. Time to separate the geniuses from the gullible.",
-        "Strap in everyone, because this round is about to get wildly unpredictable.",
-        "Greetings players, prepare your best fibs and watch your backs.",
-        "Welcome to the ultimate arena of nonsense, deception, and wits."
-      ];
-
-      const catIntros = [
-        `Your next category is ${category}. Write your best convincing lie right now.`,
-        `Moving right along, let's look into ${category}. Don't get caught out.`,
-        `This round's theme is ${category}. Time to fool your friends.`
-      ];
-
-      const successIntros = [
-        `Believe it or not, the actual undeniable truth was ${customData}.`,
-        `Against all odds, the real answer turned out to be ${customData}.`,
-        `The real truth was right there: ${customData}.`
-      ];
-
-      const failIntros = [
-        `Absolute disaster across the board! Nobody found the truth, which was ${customData}.`,
-        `Total failure from everyone! The real answer was actually ${customData}.`
-      ];
-
-      const leadIntros = [
-        `${customData} is currently dominating the leaderboard with an impressive lead.`,
-        `${customData} is pulling ahead of the class right now.`
-      ];
-
-      const overIntros = [
-        `That concludes today's session. Let's crown our ultimate champion: ${customData}.`,
-        `Game over! Let's see who takes home the gold today: ${customData}.`
-      ];
-
-      while (attempts < 20) {
-        if (subType === 'welcome') candidate = intros[Math.floor(Math.random() * intros.length)];
-        else if (subType === 'category') candidate = catIntros[Math.floor(Math.random() * catIntros.length)];
-        else if (subType === 'truth_success') candidate = successIntros[Math.floor(Math.random() * successIntros.length)];
-        else if (subType === 'truth_fail') candidate = failIntros[Math.floor(Math.random() * failIntros.length)];
-        else if (subType === 'leaderboard') candidate = leadIntros[Math.floor(Math.random() * leadIntros.length)];
-        else if (subType === 'gameover') candidate = overIntros[Math.floor(Math.random() * overIntros.length)];
-
-        if (!recentPhrasesHistory.includes(candidate)) break;
-        attempts++;
-      }
-
-      recentPhrasesHistory.push(candidate);
-      if (recentPhrasesHistory.length > 15) recentPhrasesHistory.shift();
-      return candidate;
-    }
-
     let isHost = false;
     let isPaused = false;
     let roomCode = '';
@@ -409,37 +264,21 @@
     let pausedByPlayer = '';
     let previousRosterNames = [];
     let seriesWinTally = {}; 
+    let recentSignaturesHistory = [];
 
-    const baseCategoryNouns = [
-      "Midnight Confessions", "Questionable Decisions", "Bizarre Suburbs", "Underground Markets", 
-      "Weird Laws", "Unusual Heists", "Local Legends", "Oddities & Antics", "Dubious Habits",
-      "Strange Romances", "Awkward Encounters", "Shady Dealings", "Late Night Mishaps",
-      "Bizarre Pet Capers", "Unconventional Jobs", "Highway Oddities", "Hidden Vices"
-    ];
-    
-    const uniqueCategories = [];
-    for (let i = 0; i < baseCategoryNouns.length; i++) {
-      uniqueCategories.push(baseCategoryNouns[i]);
-    }
-    const modifiers = ["Surreal", "Secret", "Forbidden", "Wild", "Bizarre", "Unfiltered", "Unspoken", "Chaotic", "Absurd", "Notorious"];
-    const themes = ["Chronicles", "Files", "Incidents", "Mishaps", "Secrets", "Confessions", "Tales", "Reports", "Anomalies", "Sketches"];
-    
-    while (uniqueCategories.length < 1000) {
-      const mod = modifiers[Math.floor(Math.random() * modifiers.length)];
-      const noun = baseCategoryNouns[Math.floor(Math.random() * baseCategoryNouns.length)];
-      const theme = themes[Math.floor(Math.random() * themes.length)];
-      const catName = `${mod} ${noun}: ${theme} Vol. ${uniqueCategories.length + 1}`;
-      if (!uniqueCategories.includes(catName)) {
-        uniqueCategories.push(catName);
-      }
-    }
+    // Vast expanded pools for virtually unlimited combinatorial variety
+    const categoryAdjectives = ["Midnight", "Questionable", "Bizarre", "Underground", "Weird", "Unusual", "Local", "Dubious", "Strange", "Awkward", "Shady", "Chaotic", "Absurd", "Notorious", "Surreal", "Secret", "Forbidden", "Wild", "Unspoken", "Deranged"];
+    const categoryNouns = ["Confessions", "Decisions", "Suburbs", "Markets", "Laws", "Heists", "Legends", "Antics", "Habits", "Romances", "Encounters", "Dealings", "Mishaps", "Capers", "Jobs", "Oddities", "Vices", "Fiascos", "Scandals", "Tragedies"];
+    const categoryThemes = ["Chronicles", "Files", "Incidents", "Mishaps", "Secrets", "Confessions", "Tales", "Reports", "Anomalies", "Sketches", "Logs", "Archives", "Journals", "Exhibits", "Records"];
 
     const actorPool = [
       "a confused accountant", "an overly confident barista", "a guy wearing swim trunks", 
       "a local librarian", "an aspiring influencer", "a retired plumber",
       "a board game nerd", "an undercover cop", "a rogue delivery driver",
       "an intoxicated bachelor", "a desperate ex-partner", "a shady motel manager",
-      "a wild bachelorette", "a caffeine-addicted student", "an eccentric millionaire"
+      "a wild bachelorette", "a caffeine-addicted student", "an eccentric millionaire",
+      "a disgruntled zookeeper", "a rogue tattoo artist", "an overly competitive dad",
+      "a rogue mall Santa", "a panicked algebra teacher", "a chaotic crypto bro"
     ];
 
     const actionPool = [
@@ -447,10 +286,11 @@
       "got stuck trying to recover", "caused an evacuation over", "was banned for hoarding",
       "tried to trade a luxury car for", "built an illegal shrine out of", "got arrested wearing nothing but",
       "smuggled across state lines", "lost a high-stakes bet involving", "tried to flush down the toilet",
-      "secretly duct-taped to the ceiling", "hid inside a giant hollow", "pawned off to an unsuspecting"
+      "secretly duct-taped to the ceiling", "hid inside a giant hollow", "pawned off to an unsuspecting",
+      "traded an entire collection of", "tried to smuggle across customs in", "got evicted for hiding"
     ];
 
-    const shortTruthPool = [
+    const objectPool = [
       "live badger", "three gravy jugs", "golden plunger", "stolen gorilla", 
       "mannequin hands", "motorized cart", "taxidermy cat", "wet cement block", 
       "hollow log", "foam tile pack", "medieval sword", "neon sign", 
@@ -458,35 +298,31 @@
       "frozen turkey", "whoopie cushions", "antique doorknob", "rubber chicken",
       "bag of onions", "giant burrito", "box of crayons", "plastic skull",
       "used dental floss", "jar of pickled eggs", "inflatable dinosaur", "box of expired lube",
-      "rusty bear trap", "tub of mayonnaise", "cheap sex toy", "bag of adult diapers"
+      "rusty bear trap", "tub of mayonnaise", "cheap sex toy", "bag of adult diapers",
+      "jar of expired mustard", "cardboard cutout of Batman", "bag of glitter", "box of bowling shoes"
     ];
-
-    const fallbackLies = [
-      "a bag of expired coupons", "three broken toasters", "a suspiciously loud drum", 
-      "a jar of pickled hot dogs", "a vintage lava lamp", "a signed poster of Shrek",
-      "a heavy bag of mulch", "a box of VHS tapes", "a plastic flamingo",
-      "a rusted wrench set", "an old bowling shoe", "a single green sock"
-    ];
-
-    const usedSignatures = new Set();
 
     function generateUniqueQuestion() {
       let attempts = 0;
-      while (attempts < 500) {
-        const catIdx = Math.floor(Math.random() * uniqueCategories.length);
-        const dynamicCat = uniqueCategories[catIdx];
-        
+      while (attempts < 100) {
+        const adj = categoryAdjectives[Math.floor(Math.random() * categoryAdjectives.length)];
+        const noun = categoryNouns[Math.floor(Math.random() * categoryNouns.length)];
+        const theme = categoryThemes[Math.floor(Math.random() * categoryThemes.length)];
+        const dynamicCat = `${adj} ${noun}: ${theme} Vol. ${Math.floor(Math.random() * 9999) + 1}`;
+
         const actor = actorPool[Math.floor(Math.random() * actorPool.length)];
         const action = actionPool[Math.floor(Math.random() * actionPool.length)];
-        const truth = shortTruthPool[Math.floor(Math.random() * shortTruthPool.length)];
+        const truth = objectPool[Math.floor(Math.random() * objectPool.length)];
 
         const qText = `Police reports and witness testimonies confirmed that ${actor} ${action} ____.`;
-        const signature = dynamicCat + "|" + qText + "|" + truth;
+        const signature = qText + "|" + truth;
 
-        if (!usedSignatures.has(signature) && truth.length <= 20) {
-          usedSignatures.add(signature);
-          
-          let availableDecoys = shortTruthPool.filter(o => o !== truth);
+        // Ensure absolute uniqueness from recent history and that truth is short enough
+        if (!recentSignaturesHistory.includes(signature) && truth.length <= 25) {
+          recentSignaturesHistory.push(signature);
+          if (recentSignaturesHistory.length > 30) recentSignaturesHistory.shift();
+
+          let availableDecoys = objectPool.filter(o => o !== truth);
           availableDecoys.sort(() => Math.random() - 0.5);
           let decoys = availableDecoys.slice(0, 3);
 
@@ -495,8 +331,9 @@
         attempts++;
       }
       
+      // Fallback safeguard if loop exhausts
       return {
-        cat: uniqueCategories[0],
+        cat: "Surreal Chronicles: Files Vol. 99",
         q: "Witnesses reported seeing a local resident proudly carrying ____ down Main Street.",
         truth: "live badger",
         decoys: ["golden plunger", "stolen gorilla", "motorized cart"]
@@ -625,7 +462,7 @@
       players = [];
       clientConns = [];
       currentQuestionIndex = 0;
-      usedSignatures.clear();
+      recentSignaturesHistory = [];
 
       updateHostWatermarkVisibility();
       document.getElementById('host-code-display').innerText = roomCode;
@@ -636,7 +473,6 @@
       peer.on('open', () => {
         renderHostLobby();
         showScreen('screen-host-lobby');
-        speakAnnouncer("", 'welcome', "Welcome everyone to Fool School.");
       });
 
       peer.on('connection', (conn) => {
@@ -652,7 +488,6 @@
           players.push({ name: data.name, score: 0, currentLie: '', currentVote: '' });
           playSound('click');
           broadcastSound('click');
-          speakAnnouncer("", 'welcome', `${data.name} just entered the room.`);
         } else {
           existingPlayer.connection = conn;
         }
@@ -716,7 +551,6 @@
       broadcastSound('click');
       const botName = "Bot_" + (players.length + 1);
       players.push({ name: botName, score: 0, currentLie: '', currentVote: '' });
-      speakAnnouncer("", 'welcome', `Bot player ${botName} has joined the game.`);
       renderHostLobby();
       broadcastToAll({ type: 'SYNC_PLAYERS', players });
     }
@@ -864,12 +698,6 @@
         document.getElementById('user-lie-input').value = '';
       }
 
-      if (currentQuestionIndex === 5) {
-        speakAnnouncer(currentQ.cat, 'category', "Final Round, points are tripled!");
-      } else {
-        speakAnnouncer(currentQ.cat, 'category');
-      }
-
       startTimer('timer-lie', 45, () => {
         if (!isHost && document.getElementById('lie-input-container').style.display !== 'none') {
           assignTimeoutLieForMe();
@@ -882,13 +710,13 @@
     }
 
     function assignTimeoutLieForMe() {
-      let pool = [...fallbackLies, ...currentQ.decoys].sort(() => Math.random() - 0.5);
+      let pool = [...objectPool].sort(() => Math.random() - 0.5);
       let chosen = pool.find(item => !players.some(p => p.currentLie === item)) || pool[0];
       document.getElementById('user-lie-input').value = chosen;
     }
 
     function fillTimeoutLies() {
-      let availableFallbacks = [...fallbackLies, ...currentQ.decoys].sort(() => Math.random() - 0.5);
+      let availableFallbacks = [...objectPool].sort(() => Math.random() - 0.5);
       let fbIdx = 0;
       players.forEach(p => {
         if (!p.currentLie || p.currentLie === '') {
@@ -900,7 +728,7 @@
               break;
             }
           }
-          p.currentLie = chosen || `fake lie #${Math.floor(Math.random()*100)}` ;
+          p.currentLie = chosen || `fake lie #${Math.floor(Math.random()*100)}`;
         }
       });
     }
@@ -1030,11 +858,9 @@
       if (pickedTruthCount > 0) {
         playSound('correct');
         broadcastSound('correct');
-        speakAnnouncer("", 'truth_success', currentQ.truth);
       } else {
         playSound('fool');
         broadcastSound('fool');
-        speakAnnouncer("", 'truth_fail', currentQ.truth);
       }
 
       broadcastToAll({ type: 'START_REVEAL', players });
@@ -1131,8 +957,6 @@
         winners.forEach(w => {
           seriesWinTally[w.name] = (seriesWinTally[w.name] || 0) + 1;
         });
-
-        speakAnnouncer("", 'gameover', winners.map(w => w.name).join(' and '));
       }
       setupScoresScreen();
     }
@@ -1141,10 +965,6 @@
       showScreen('screen-scores');
       const container = document.getElementById('leaderboard-container');
       const sorted = [...players].sort((a,b) => b.score - a.score);
-
-      if (currentQuestionIndex < 6 && sorted.length > 0) {
-        speakAnnouncer("", 'leaderboard', sorted[0].name);
-      }
 
       const isGameOver = (currentQuestionIndex >= 6);
 
@@ -1192,7 +1012,7 @@
       playSound('click');
       players.forEach(p => p.score = 0);
       currentQuestionIndex = 0;
-      usedSignatures.clear();
+      recentSignaturesHistory = [];
       document.getElementById('host-end-options').style.display = 'none';
       nextQuestion();
     }
