@@ -3,9 +3,8 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Game App</title>
+  <title>Endless Game Engine</title>
   <style>
-    /* Global Reset & Base Styles */
     * {
       box-sizing: border-box;
       margin: 0;
@@ -24,7 +23,7 @@
       overflow-x: hidden;
     }
 
-    /* Main Menu Screen Overhaul */
+    /* Main Menu Screen */
     #main-menu {
       background: rgba(255, 255, 255, 0.05);
       backdrop-filter: blur(10px);
@@ -32,11 +31,11 @@
       border-radius: 24px;
       padding: 40px 30px;
       width: 90%;
-      max-width: 420px;
+      max-width: 440px;
       text-align: center;
       box-shadow: 0 20px 40px rgba(0,0,0,0.4);
       position: relative;
-      animation: fadeIn 0.6s ease-out;
+      animation: fadeIn 0.5s ease-out;
     }
 
     .title-container {
@@ -59,7 +58,6 @@
       margin-top: 5px;
     }
 
-    /* Action Buttons */
     .menu-actions {
       display: flex;
       flex-direction: column;
@@ -76,7 +74,7 @@
       font-weight: 700;
       border-radius: 12px;
       cursor: pointer;
-      transition: transform 0.2s ease, box-shadow 0.2s ease, background-color 0.2s ease;
+      transition: transform 0.2s ease, box-shadow 0.2s ease;
       box-shadow: 0 6px 15px rgba(72, 219, 251, 0.3);
     }
 
@@ -95,21 +93,12 @@
       box-shadow: 0 6px 15px rgba(255, 159, 243, 0.3);
     }
 
-    .btn-host:hover {
-      box-shadow: 0 10px 20px rgba(255, 159, 243, 0.4);
-    }
-
     .btn-join {
       background: linear-gradient(135deg, #48dbfb, #1dd1a1);
       color: #1e1e2f;
       box-shadow: 0 6px 15px rgba(72, 219, 251, 0.3);
     }
 
-    .btn-join:hover {
-      box-shadow: 0 10px 20px rgba(72, 219, 251, 0.4);
-    }
-
-    /* Audio Toggle Switch */
     .audio-control-container {
       display: flex;
       align-items: center;
@@ -117,7 +106,6 @@
       background: rgba(0, 0, 0, 0.2);
       padding: 12px 18px;
       border-radius: 50px;
-      margin-top: 10px;
       border: 1px solid rgba(255, 255, 255, 0.05);
     }
 
@@ -152,10 +140,8 @@
     .slider:before {
       position: absolute;
       content: "";
-      height: 18px;
-      width: 18px;
-      left: 4px;
-      bottom: 4px;
+      height: 18px; width: 18px;
+      left: 4px; bottom: 4px;
       background-color: white;
       transition: .3s;
       border-radius: 50%;
@@ -169,55 +155,59 @@
       transform: translateX(22px);
     }
 
-    /* Gameplay Area & Safe Animations */
+    /* Gameplay Screen */
     #game-area {
       display: none;
       width: 90%;
-      max-width: 600px;
+      max-width: 550px;
       text-align: center;
       animation: fadeIn 0.4s ease-out;
     }
 
     .game-card {
       background: rgba(255, 255, 255, 0.05);
+      backdrop-filter: blur(10px);
       border: 1px solid rgba(255, 255, 255, 0.1);
-      border-radius: 16px;
-      padding: 30px;
+      border-radius: 20px;
+      padding: 35px 25px;
       box-shadow: 0 10px 30px rgba(0,0,0,0.3);
-      position: relative;
+      animation: subtlePulse 4s ease-in-out infinite;
     }
 
-    /* Subtle pulse animation for game elements (Visual only, no layout shift) */
-    .animated-game-element {
-      animation: subtlePulse 3s ease-in-out infinite;
+    .question-box {
+      font-size: 1.3rem;
+      font-weight: 600;
+      line-height: 1.5;
+      color: #f1f2f6;
+      min-height: 110px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin-bottom: 25px;
+      padding: 15px;
+      background: rgba(0, 0, 0, 0.2);
+      border-radius: 12px;
+      border-left: 4px solid #ff9ff3;
     }
 
-    /* Floating visual accents in main screen background */
+    .game-controls {
+      display: flex;
+      gap: 12px;
+      justify-content: center;
+    }
+
+    /* Ambient shapes */
     .bg-shape {
       position: absolute;
       border-radius: 50%;
       filter: blur(50px);
       z-index: -1;
-      opacity: 0.5;
+      opacity: 0.4;
     }
 
-    .shape-1 {
-      width: 200px;
-      height: 200px;
-      background: #ff6b6b;
-      top: -50px;
-      left: -50px;
-    }
+    .shape-1 { width: 220px; height: 220px; background: #ff6b6b; top: -60px; left: -60px; }
+    .shape-2 { width: 250px; height: 250px; background: #48dbfb; bottom: -70px; right: -70px; }
 
-    .shape-2 {
-      width: 250px;
-      height: 250px;
-      background: #48dbfb;
-      bottom: -60px;
-      right: -60px;
-    }
-
-    /* Keyframe Animations */
     @keyframes fadeIn {
       from { opacity: 0; transform: translateY(10px); }
       to { opacity: 1; transform: translateY(0); }
@@ -230,9 +220,9 @@
     }
 
     @keyframes subtlePulse {
-      0% { transform: scale(1); }
-      50% { transform: scale(1.015); box-shadow: 0 0 15px rgba(255, 255, 255, 0.05); }
-      100% { transform: scale(1); }
+      0% { box-shadow: 0 10px 30px rgba(0,0,0,0.3); }
+      50% { box-shadow: 0 10px 35px rgba(255, 159, 243, 0.15); }
+      100% { box-shadow: 0 10px 30px rgba(0,0,0,0.3); }
     }
   </style>
 </head>
@@ -244,8 +234,8 @@
     <div class="bg-shape shape-2"></div>
 
     <div class="title-container">
-      <h1 class="main-title">Game Time!</h1>
-      <p class="subtitle">Select an option to get started</p>
+      <h1 class="main-title">Dilemma Dash</h1>
+      <p class="subtitle">Infinite Adult Social Scenarios</p>
     </div>
 
     <div class="menu-actions">
@@ -254,7 +244,7 @@
     </div>
 
     <div class="audio-control-container">
-      <span class="audio-label">Audio Commentary</span>
+      <span class="audio-label">Announcer Audio</span>
       <label class="switch">
         <input type="checkbox" id="audio-toggle" checked onchange="toggleAudio(this.checked)">
         <span class="slider"></span>
@@ -264,11 +254,15 @@
 
   <!-- Gameplay Screen -->
   <div id="game-area">
-    <div class="game-card animated-game-element">
-      <h2>Game Session Active</h2>
-      <p style="margin-top: 15px; color: #a0a0c0;">Gameplay in progress...</p>
-      <button class="btn" style="margin-top: 20px;" onclick="triggerVoiceCommentary()">Trigger Announcer</button>
-      <button class="btn" style="margin-top: 10px; background: #ff6b6b; color: white;" onclick="returnToMenu()">Main Menu</button>
+    <div class="game-card">
+      <div id="question-display" class="question-box">
+        Loading your first dilemma...
+      </div>
+
+      <div class="game-controls">
+        <button class="btn btn-join" onclick="generateNextQuestion()">Next Question</button>
+        <button class="btn" style="background: #ff6b6b; color: #fff;" onclick="returnToMenu()">Menu</button>
+      </div>
     </div>
   </div>
 
@@ -276,39 +270,84 @@
     let audioEnabled = true;
     let selectedVoice = null;
 
-    // Quirky/Silly voice lines for the character
-    const voiceLines = [
-      "Alright, absolute masterpiece of a move! ...Or complete accident, I can't tell.",
-      "Beep boop! Just checking in to make sure you're still awake over there.",
-      "Bold strategy! Let's see if it works out, or if we end up crying about it later.",
-      "Whoa, easy there champion! Save some talent for the rest of us.",
-      "Did you mean to do that? No judgments here, just highly suspicious."
+    // PROCEDURAL GENERATOR DATA (Mature, Witty, Non-Raunchy)
+    const subjects = [
+      "your landlord", "your direct manager", "your high school rival", "your mother-in-law", 
+      "your local HOA president", "your favorite coworker", "your ex’s new partner", "your accountant"
     ];
 
+    const actions = [
+      "accidentally replies-all with a brutally honest critique of",
+      "catches you faking an elaborate excuse to skip",
+      "discovers your secret, highly specific side hustle involving",
+      "demands you publicly defend your controversial opinion on",
+      "catches you eating their clearly labeled gourmet food in",
+      "walks in on you having a heated full-blown debate with",
+      "finds out you accidentally spent $500 of shared money on"
+    ];
+
+    const contexts = [
+      "a mandatory corporate team building retreat.",
+      "a high-stakes family holiday dinner.",
+      "a crowded neighborhood block party.",
+      "a professional networking event.",
+      "a weekend group trip in a tiny Airbnb.",
+      "a formal wedding reception during the speeches."
+    ];
+
+    const consequences = [
+      "Do you double down and own it, or fabricate a chaotic lie?",
+      "Who in the room do you immediately throw under the bus?",
+      "How do you negotiate your way out of this without moving away?",
+      "What is your immediate 5-second survival strategy?",
+      "Do you apologize profusely or pretend it was an intentional power move?"
+    ];
+
+    // Additional standalone prompt templates to add even more structural variety
+    const templates = [
+      "Would you rather have {subject} read your unedited search history out loud, or spend 48 continuous hours with them on a road trip?",
+      "You get $10,000 deposited tax-free, but {subject} gets to make one binding decision about your personal schedule every week. Do you take it?",
+      "You are forced to explain {context} to {subject} using only hand gestures and severe eye contact. What's your opening move?",
+      "If you had to trade bank accounts with {subject} right now, who gets the worse deal and why?"
+    ];
+
+    function generateQuestion() {
+      // Pick randomly between dynamic assembly or structured templates
+      if (Math.random() > 0.4) {
+        const sub = subjects[Math.floor(Math.random() * subjects.length)];
+        const act = actions[Math.floor(Math.random() * actions.length)];
+        const ctx = contexts[Math.floor(Math.random() * contexts.length)];
+        const con = consequences[Math.floor(Math.random() * consequences.length)];
+        return `During ${ctx}, ${sub} ${act} your personal life. ${con}`;
+      } else {
+        const tmpl = templates[Math.floor(Math.random() * templates.length)];
+        const sub = subjects[Math.floor(Math.random() * subjects.length)];
+        const ctx = contexts[Math.floor(Math.random() * contexts.length)];
+        return tmpl.replace('{subject}', sub).replace('{context}', ctx);
+      }
+    }
+
+    function generateNextQuestion() {
+      const q = generateQuestion();
+      document.getElementById('question-display').innerText = q;
+      speak(q);
+    }
+
+    /* Voice & Audio Engine */
     function toggleAudio(enabled) {
       audioEnabled = enabled;
       if (audioEnabled) {
-        speak("Audio enabled! Let's do this!");
+        speak("Audio back on! Let's get weird.");
       } else {
         window.speechSynthesis.cancel();
       }
     }
 
-    // Initialize Natural Male Voice Selection
     function initVoice() {
       const voices = window.speechSynthesis.getVoices();
-      
-      // Preferred order for natural-sounding male voices across major platforms
-      const preferredVoices = [
-        "Google UK English Male",
-        "Google US English",
-        "Microsoft Guy Online (Natural)",
-        "Microsoft David - English (United States)",
-        "Daniel",
-        "Alex"
-      ];
+      const preferred = ["Google UK English Male", "Google US English", "Microsoft Guy Online (Natural)", "Daniel", "Alex"];
 
-      for (let name of preferredVoices) {
+      for (let name of preferred) {
         const found = voices.find(v => v.name.includes(name));
         if (found) {
           selectedVoice = found;
@@ -316,7 +355,6 @@
         }
       }
 
-      // Fallback: pick any English voice marked male or the first available English voice
       if (!selectedVoice) {
         selectedVoice = voices.find(v => v.lang.startsWith('en') && v.name.toLowerCase().includes('male')) 
                      || voices.find(v => v.lang.startsWith('en')) 
@@ -329,43 +367,37 @@
       initVoice();
     }
 
-    // Speak function tuned for a pleasant, quirky personality
     function speak(text) {
       if (!audioEnabled || !('speechSynthesis' in window)) return;
-
-      window.speechSynthesis.cancel(); // Stop any active speech
+      window.speechSynthesis.cancel();
 
       const utterance = new SpeechSynthesisUtterance(text);
       if (selectedVoice) utterance.voice = selectedVoice;
-
-      // Pitch and pitch variations create the funny/pleasant voice dynamic
-      utterance.rate = 1.05; // Slightly upbeat pacing
-      utterance.pitch = 1.1; // Slightly expressive pitch
+      utterance.rate = 1.05;
+      utterance.pitch = 1.1; // Slightly expressive and funny
 
       window.speechSynthesis.speak(utterance);
     }
 
+    /* Screen Flow */
     function hostGame() {
       document.getElementById('main-menu').style.display = 'none';
       document.getElementById('game-area').style.display = 'block';
-      speak("Welcome to the host seat! Try not to ruin the game for everyone!");
+      speak("Hosting a session! Hope you brought your bad decisions.");
+      generateNextQuestion();
     }
 
     function joinGame() {
       document.getElementById('main-menu').style.display = 'none';
       document.getElementById('game-area').style.display = 'block';
-      speak("You joined! Hopefully, you brought your secret winning powers with you.");
-    }
-
-    function triggerVoiceCommentary() {
-      const randomLine = voiceLines[Math.floor(Math.random() * voiceLines.length)];
-      speak(randomLine);
+      speak("Welcome in! Prepare yourself.");
+      generateNextQuestion();
     }
 
     function returnToMenu() {
       document.getElementById('game-area').style.display = 'none';
       document.getElementById('main-menu').style.display = 'block';
-      speak("Back to the main menu. Take a breath!");
+      speak("Back to safety.");
     }
   </script>
 </body>
