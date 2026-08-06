@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Bluff & Blank - Full Fibbage Edition</title>
+  <title>Bluff & Blank - Fibbage Edition</title>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
     body { background: linear-gradient(135deg, #181824, #28283d); color: #fff; min-height: 100vh; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 20px; }
@@ -23,13 +23,12 @@
     .question-box { font-size: 1.25rem; font-weight: 600; line-height: 1.4; padding: 18px; background: rgba(0,0,0,0.3); border-radius: 12px; border-left: 4px solid #48dbfb; margin-bottom: 20px; text-align: left; }
     .blank-hl { color: #feca57; text-decoration: underline; font-weight: 800; }
     .choice-btn { background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.2); color: #fff; padding: 14px; border-radius: 10px; font-size: 1rem; font-weight: 600; cursor: pointer; text-align: left; transition: all 0.2s; width: 100%; margin-bottom: 8px; }
-    .choice-btn:hover { background: rgba(255,255,255,0.2); border-color: #48dbfb; }
+    .choice-btn:hover:not(:disabled) { background: rgba(255,255,255,0.2); border-color: #48dbfb; }
     .reveal-card { background: rgba(0,0,0,0.3); border-radius: 10px; padding: 12px; margin-bottom: 10px; text-align: left; }
     .reveal-answer { font-size: 1.1rem; font-weight: 700; }
     .reveal-author { font-size: 0.85rem; color: #feca57; }
     .reveal-voters { font-size: 0.85rem; color: #1dd1a1; margin-top: 4px; }
     .truth { border: 2px solid #1dd1a1; }
-    .copy-btn { background: #333; color: #aaa; border: none; padding: 6px 12px; border-radius: 6px; font-size: 0.75rem; cursor: pointer; float: right; margin-top: -30px; }
     @keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
   </style>
 </head>
@@ -112,15 +111,15 @@
   </div>
 
   <script>
-    // BroadcastChannel syncs all browser tabs running this game in real time!
     const channel = new BroadcastChannel('fibbage_game_channel');
     
     let isHost = false;
     let roomCode = '';
     let myName = '';
-    let players = []; // { name, score, currentLie, currentVote }
+    let players = []; 
     let currentQ = null;
     let roundIndex = 0;
+    let naturalMaleVoice = null;
 
     const questionBank = [
       { cat: "Strange Laws", q: "In France, it is strictly illegal to name a pig ____.", truth: "Napoleon" },
@@ -132,13 +131,54 @@
 
     const botLies = ["a giant cheese wheel", "the local mayor", "a cursed toaster", "free coupons", "a fake mustache", "tax documents"];
 
-    /* SCREEN MANAGEMENT */
+    /* NATURAL VOICE SELECTION ENGINE */
+    function loadVoices() {
+      if (!('speechSynthesis' in window)) return;
+      const voices = window.speechSynthesis.getVoices();
+      
+      const preferredMale = [
+        "Microsoft Guy Online (Natural)",
+        "Google UK English Male",
+        "Google US English",
+        "Daniel",
+        "Alex",
+        "Oliver"
+      ];
+
+      for (let name of preferredMale) {
+        const found = voices.find(v => v.name.includes(name));
+        if (found) { naturalMaleVoice = found; break; }
+      }
+
+      if (!naturalMaleVoice) {
+        naturalMaleVoice = voices.find(v => v.lang.startsWith('en') && v.name.toLowerCase().includes('male')) 
+                        || voices.find(v => v.lang.startsWith('en')) 
+                        || voices[0];
+      }
+    }
+
+    if (typeof speechSynthesis !== 'undefined') {
+      window.speechSynthesis.onvoiceschanged = loadVoices;
+      loadVoices();
+    }
+
+    function speak(text) {
+      if (!('speechSynthesis' in window)) return;
+      window.speechSynthesis.cancel();
+      const u = new SpeechSynthesisUtterance(text);
+      if (naturalMaleVoice) u.voice = naturalMaleVoice;
+      u.rate = 0.98;
+      u.pitch = 0.95; 
+      window.speechSynthesis.speak(u);
+    }
+
+    /* SCREEN ROUTER */
     function showScreen(id) {
       document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
       document.getElementById(id).classList.add('active');
     }
 
-    /* HOST FLOW */
+    /* HOST LOBBY */
     function openHostLobby() {
       isHost = true;
       roomCode = Math.random().toString(36).substring(2, 6).toUpperCase();
@@ -155,7 +195,7 @@
       const botName = "Bot_" + (players.length + 1);
       players.push({ name: botName, score: 0, currentLie: '', currentVote: '' });
       updateHostLobbyUI();
-      broadcastState({ type: 'PLAYER_JOINED', players });
+      broadcastState({ type: 'PLAYER_JOINED_ACK', players, roomCode });
     }
 
     function updateHostLobbyUI() {
@@ -164,9 +204,7 @@
     }
 
     function startFibbageGame() {
-      if (players.length === 0) {
-        addBotPlayer(); // Ensure at least 1 bot if testing solo
-      }
+      if (players.length === 0) addBotPlayer();
       roundIndex = 0;
       nextQuestion();
     }
@@ -175,10 +213,9 @@
       if (roundIndex >= questionBank.length) roundIndex = 0;
       currentQ = questionBank[roundIndex++];
       
-      // Reset player round state
       players.forEach(p => { p.currentLie = ''; p.currentVote = ''; });
 
-      // Handle Bots Lie Generation
+      // Generate Bot Lies
       players.filter(p => p.name.startsWith('Bot_')).forEach(b => {
         b.currentLie = botLies[Math.floor(Math.random() * botLies.length)];
       });
@@ -187,7 +224,7 @@
       setupSubmitLieScreen();
     }
 
-    /* JOIN FLOW */
+    /* JOIN LOGIC */
     function openJoinScreen() {
       isHost = false;
       showScreen('screen-join');
@@ -201,10 +238,10 @@
 
       channel.postMessage({ type: 'REQUEST_JOIN', name: myName, code: code });
       showScreen('screen-player-wait');
-      document.getElementById('player-welcome-msg').innerText = `Connected as ${myName}. Waiting for host...`;
+      document.getElementById('player-welcome-msg').innerText = `Connecting to room ${code}...`;
     }
 
-    /* STAGE 1: SUBMIT LIE */
+    /* STAGE 1: SUBMIT LIES */
     function setupSubmitLieScreen() {
       showScreen('screen-submit-lie');
       document.getElementById('question-cat').innerText = currentQ.cat;
@@ -225,7 +262,7 @@
       if (isHost) {
         recordLie(myName, lie);
       } else {
-        channel.postMessage({ type: 'SUBMIT_LIE', name: myName, lie: lie });
+        channel.postMessage({ type: 'SUBMIT_LIE', name: myName, lie: lie, code: roomCode });
       }
     }
 
@@ -233,28 +270,24 @@
       const p = players.find(x => x.name === name);
       if (p) p.currentLie = lie;
 
-      // Check if all players submitted lies
       if (players.every(x => x.currentLie !== '')) {
         startVotingStage();
       }
     }
 
-    /* STAGE 2: VOTING STAGE */
+    /* STAGE 2: VOTING */
     function startVotingStage() {
-      // Collect choices: All player lies + True answer
       let choices = players.map(p => ({ text: p.currentLie, author: p.name, isTruth: false }));
       choices.push({ text: currentQ.truth, author: 'TRUTH', isTruth: true });
-      
-      // Shuffle choices
       choices = choices.sort(() => Math.random() - 0.5);
 
-      // Bot random votes
+      // Bot Votes
       players.filter(p => p.name.startsWith('Bot_')).forEach(b => {
         const validOptions = choices.filter(c => c.author !== b.name);
         b.currentVote = validOptions[Math.floor(Math.random() * validOptions.length)].text;
       });
 
-      broadcastState({ type: 'START_VOTE', question: currentQ, choices });
+      broadcastState({ type: 'START_VOTE', question: currentQ, choices, roomCode });
       setupVotingScreen(choices);
     }
 
@@ -266,7 +299,6 @@
 
       const container = document.getElementById('choices-container');
       container.innerHTML = choices.map(c => {
-        // Can't vote for your own lie
         const isMyLie = (c.author === myName);
         return `<button class="choice-btn" ${isMyLie ? 'disabled style="opacity:0.4;"' : ''} onclick="submitVote('${c.text.replace(/'/g, "\\'")}')">${c.text} ${isMyLie ? '(Your Lie)' : ''}</button>`;
       }).join('');
@@ -279,7 +311,7 @@
       if (isHost) {
         recordVote(myName, choiceText);
       } else {
-        channel.postMessage({ type: 'SUBMIT_VOTE', name: myName, vote: choiceText });
+        channel.postMessage({ type: 'SUBMIT_VOTE', name: myName, vote: choiceText, code: roomCode });
       }
     }
 
@@ -292,19 +324,15 @@
       }
     }
 
-    /* STAGE 3: REVEAL & SCORING */
+    /* STAGE 3: REVEAL */
     function calculateAndShowReveal() {
-      // Calculate scores
       players.forEach(p => {
-        if (p.currentVote === currentQ.truth) {
-          p.score += 1000; // Found truth
-        }
-        // Points for fooling others with your lie
+        if (p.currentVote === currentQ.truth) p.score += 1000;
         const fooled = players.filter(other => other.currentVote === p.currentLie && other.name !== p.name);
         p.score += (fooled.length * 500);
       });
 
-      broadcastState({ type: 'SHOW_REVEAL', players, truth: currentQ.truth });
+      broadcastState({ type: 'SHOW_REVEAL', players, truth: currentQ.truth, roomCode });
       setupRevealScreen();
     }
 
@@ -331,7 +359,7 @@
     }
 
     function nextRoundOrScores() {
-      broadcastState({ type: 'SHOW_SCORES', players });
+      broadcastState({ type: 'SHOW_SCORES', players, roomCode });
       setupScoresScreen();
     }
 
@@ -347,7 +375,7 @@
       `).join('');
     }
 
-    /* BROADCAST CHANNEL NETWORK SYNCHRONIZATION */
+    /* BROADCAST ENGINE */
     function broadcastState(msg) {
       channel.postMessage(msg);
     }
@@ -359,41 +387,37 @@
         if (data.type === 'REQUEST_JOIN' && data.code === roomCode) {
           if (!players.some(p => p.name === data.name)) {
             players.push({ name: data.name, score: 0, currentLie: '', currentVote: '' });
-            updateHostLobbyUI();
-            broadcastState({ type: 'PLAYER_JOINED', players });
           }
+          updateHostLobbyUI();
+          broadcastState({ type: 'PLAYER_JOINED_ACK', players, roomCode });
         }
-        if (data.type === 'SUBMIT_LIE') recordLie(data.name, data.lie);
-        if (data.type === 'SUBMIT_VOTE') recordVote(data.name, data.vote);
+        if (data.type === 'SUBMIT_LIE' && data.code === roomCode) recordLie(data.name, data.lie);
+        if (data.type === 'SUBMIT_VOTE' && data.code === roomCode) recordVote(data.name, data.vote);
       } else {
-        // Player Client Receives
-        if (data.type === 'START_SUBMIT_LIE') {
+        // Player Clients Listen Here
+        if (data.type === 'PLAYER_JOINED_ACK' && myName) {
+          roomCode = data.roomCode;
+          players = data.players;
+          document.getElementById('player-welcome-msg').innerText = `Connected to room ${roomCode}! Waiting for host to start...`;
+        }
+        if (data.type === 'START_SUBMIT_LIE' && data.roomCode === roomCode) {
           currentQ = data.question;
           setupSubmitLieScreen();
         }
-        if (data.type === 'START_VOTE') {
+        if (data.type === 'START_VOTE' && data.roomCode === roomCode) {
           currentQ = data.question;
           setupVotingScreen(data.choices);
         }
-        if (data.type === 'SHOW_REVEAL') {
+        if (data.type === 'SHOW_REVEAL' && data.roomCode === roomCode) {
           players = data.players;
           setupRevealScreen();
         }
-        if (data.type === 'SHOW_SCORES') {
+        if (data.type === 'SHOW_SCORES' && data.roomCode === roomCode) {
           players = data.players;
           setupScoresScreen();
         }
       }
     };
-
-    /* TEXT TO SPEECH */
-    function speak(text) {
-      if (!('speechSynthesis' in window)) return;
-      window.speechSynthesis.cancel();
-      const u = new SpeechSynthesisUtterance(text);
-      u.rate = 1.05;
-      window.speechSynthesis.speak(u);
-    }
   </script>
 </body>
 </html>
