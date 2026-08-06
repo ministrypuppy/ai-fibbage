@@ -285,14 +285,21 @@
       "All grades are locked in. Let's reveal our ultimate victor."
     ];
 
-    /* EXPANDED PHRASE BUILDERS TO HIT 500+ UNIQUE COMBINATIONS WITHOUT REPETITION */
-    const usedVoiceSignatures = new Set();
+    let maleVoice = null;
+    function loadMaleVoice() {
+      const voices = window.speechSynthesis.getVoices();
+      // Target a natural-sounding English male voice explicitly
+      maleVoice = voices.find(v => v.lang.startsWith('en') && (v.name.includes('Natural') || v.name.includes('Google US English') || v.name.includes('Microsoft David') || v.name.includes('Microsoft Mark') || v.name.includes('Ryan') || v.name.includes('Oliver') || v.name.includes('Guy'))) ||
+                  voices.find(v => v.lang.startsWith('en') && v.name.toLowerCase().includes('male')) ||
+                  voices.find(v => v.lang.startsWith('en')) || null;
+    }
+    window.speechSynthesis.onvoiceschanged = loadMaleVoice;
+    loadMaleVoice();
 
     function getUniqueSpokenText(category, subType, customData = "") {
       let phrase = "";
       if (subType === 'welcome') {
-        const p1 = welcomePhrases[Math.floor(Math.random() * welcomePhrases.length)];
-        phrase = p1;
+        phrase = welcomePhrases[Math.floor(Math.random() * welcomePhrases.length)];
       } else if (subType === 'category') {
         const p1 = categoryIntroPhrases[Math.floor(Math.random() * categoryIntroPhrases.length)];
         phrase = `${p1} ${category}. Write your best lie now.`;
@@ -309,20 +316,9 @@
         const p1 = gameOverPhrases[Math.floor(Math.random() * gameOverPhrases.length)];
         phrase = `${p1} ${customData}`;
       }
-
-      // Append high-entropy random salt to guarantee speech synthesizer never cuts off or caches identical text strings
-      const finalUtterance = `${phrase} [id:${Math.random().toString(36).substring(2, 9)}]`;
-      return finalUtterance;
+      // Pure clean text without any random hash salts or alphanumeric codes appended
+      return phrase;
     }
-
-    let maleVoice = null;
-    function loadMaleVoice() {
-      const voices = window.speechSynthesis.getVoices();
-      maleVoice = voices.find(v => v.lang.startsWith('en') && (v.name.includes('Natural') || v.name.includes('Online') || v.name.includes('Google US English') || v.name.includes('Microsoft Oliver') || v.name.includes('Ryan'))) ||
-                  voices.find(v => v.lang.startsWith('en')) || null;
-    }
-    window.speechSynthesis.onvoiceschanged = loadMaleVoice;
-    loadMaleVoice();
 
     function speakAnnouncer(category, subType, customData = "") {
       if (!isHost) return;
@@ -333,8 +329,8 @@
 
       const utter = new SpeechSynthesisUtterance(textToSpeak);
       if (maleVoice) utter.voice = maleVoice;
-      utter.pitch = 0.88; 
-      utter.rate = 1.04;  
+      utter.pitch = 0.85; // Deepened pitch for a natural male voice tone
+      utter.rate = 1.0;  
       window.speechSynthesis.speak(utter);
     }
 
@@ -406,7 +402,7 @@
         attempts++;
       }
       
-      const fallbackTruth = "a vintage disco ball filled with soup " + Math.random();
+      const fallbackTruth = "a vintage disco ball filled with soup";
       return {
         cat: "Infinite Anomalies",
         q: "Witnesses reported seeing a local resident proudly carrying ____ down Main Street.",
