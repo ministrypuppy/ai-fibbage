@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Dilemma Dash</title>
+  <title>Fibbage Style Game</title>
   <style>
     * {
       box-sizing: border-box;
@@ -35,7 +35,7 @@
       text-align: center;
       box-shadow: 0 20px 40px rgba(0,0,0,0.4);
       position: relative;
-      animation: fadeIn 0.5s ease-out;
+      animation: fadeIn 0.4s ease-out;
     }
 
     .title-container {
@@ -159,7 +159,7 @@
     #game-area {
       display: none;
       width: 90%;
-      max-width: 550px;
+      max-width: 580px;
       text-align: center;
       animation: fadeIn 0.4s ease-out;
     }
@@ -174,12 +174,26 @@
       animation: subtlePulse 4s ease-in-out infinite;
     }
 
+    .category-tag {
+      display: inline-block;
+      background: rgba(255, 159, 243, 0.2);
+      color: #ff9ff3;
+      padding: 6px 14px;
+      border-radius: 20px;
+      font-size: 0.85rem;
+      font-weight: 700;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+      margin-bottom: 15px;
+      border: 1px solid rgba(255, 159, 243, 0.3);
+    }
+
     .question-box {
-      font-size: 1.3rem;
+      font-size: 1.35rem;
       font-weight: 600;
       line-height: 1.5;
       color: #f1f2f6;
-      min-height: 120px;
+      min-height: 110px;
       display: flex;
       align-items: center;
       justify-content: center;
@@ -187,7 +201,14 @@
       padding: 20px;
       background: rgba(0, 0, 0, 0.25);
       border-radius: 12px;
-      border-left: 4px solid #ff9ff3;
+      border-left: 4px solid #48dbfb;
+    }
+
+    .blank-highlight {
+      color: #feca57;
+      text-decoration: underline;
+      font-weight: 800;
+      padding: 0 4px;
     }
 
     .game-controls {
@@ -196,7 +217,6 @@
       justify-content: center;
     }
 
-    /* Ambient shapes */
     .bg-shape {
       position: absolute;
       border-radius: 50%;
@@ -234,13 +254,13 @@
     <div class="bg-shape shape-2"></div>
 
     <div class="title-container">
-      <h1 class="main-title">Dilemma Dash</h1>
-      <p class="subtitle">Infinite Adult Social Scenarios</p>
+      <h1 class="main-title">Bluff & Blank</h1>
+      <p class="subtitle">Obscure Facts & Fake Answers</p>
     </div>
 
     <div class="menu-actions">
-      <button class="btn btn-host" onclick="hostGame()">Host Game</button>
-      <button class="btn btn-join" onclick="joinGame()">Join Game</button>
+      <button class="btn btn-host" onclick="startGame('host')">Host Game</button>
+      <button class="btn btn-join" onclick="startGame('join')">Join Game</button>
     </div>
 
     <div class="audio-control-container">
@@ -252,15 +272,16 @@
     </div>
   </div>
 
-  <!-- Gameplay Screen (Fixed Layout) -->
+  <!-- Gameplay Screen -->
   <div id="game-area">
     <div class="game-card">
+      <div class="category-tag" id="category-display">Bizarre Laws</div>
       <div id="question-display" class="question-box">
-        Loading scenario...
+        Loading statement...
       </div>
 
       <div class="game-controls">
-        <button class="btn btn-join" onclick="generateNextQuestion()">Next Question</button>
+        <button class="btn btn-join" onclick="nextFibbageQuestion()">Next Prompt</button>
         <button class="btn" style="background: #ff6b6b; color: #fff;" onclick="returnToMenu()">Main Menu</button>
       </div>
     </div>
@@ -270,97 +291,100 @@
     let audioEnabled = true;
     let selectedVoice = null;
 
-    /* ANNOUNCER RANDOMIZED DIALOGUE ARRAYS */
-    const hostLines = [
-      "Welcome to the host seat! Try not to ruin the game for everyone.",
-      "Look at you, running the show. Let's see how long this lasts.",
-      "Hosting a session! Hope you brought your questionable decisions.",
-      "Ah, the boss steps up. Let's get this party started!"
+    /* ANNOUNCER RANDOM DIALOGUE ARRAYS */
+    const hostIntros = [
+      "Alright host, try not to fall for your own fake answers.",
+      "Look at you running the room. Let's see who can lie best.",
+      "Session hosted! Time to fool your friends with absolute lies."
     ];
 
-    const joinLines = [
-      "You joined! Hopefully, you brought your secret winning powers.",
-      "Welcome in! Prepare yourself for pure chaos.",
-      "A new player enters! Let's see what you've got.",
-      "You actually showed up! Alright, let's play."
+    const joinIntros = [
+      "Welcome in! Get ready to write the most believable nonsense.",
+      "You joined! Bring your best fake facts.",
+      "A new challenger appears. Good luck spotting the truth."
     ];
 
-    const menuLines = [
-      "Back to safety. Coward.",
-      "Main menu engaged. Take a breather.",
-      "Escaping so soon? Fine, catch your breath."
+    const menuIntros = [
+      "Back to safety.",
+      "Main menu engaged. Catch your breath."
     ];
 
-    /* INFINITE ADULT QUESTION GENERATOR (Witty & Mature) */
-    const subjects = [
-      "your landlord", "your direct manager", "your high school rival", "your mother-in-law", 
-      "your local HOA president", "your favorite coworker", "your ex’s new partner", "your accountant"
+    /* FIBBAGE-STYLE QUESTION BANK & GENERATOR ENGINE */
+    const fibbageQuestions = [
+      { cat: "Corporate Chaos", q: "In 2019, an office worker was formally reprimanded after accidentally sending an email containing ____ to the entire executive team." },
+      { cat: "Strange History", q: "In 1912, a disgruntled landlord attempted to evict a tenant by releasing three dozen ____ into their living room." },
+      { cat: "Wacky Laws", q: "In a small town in France, it is strictly illegal to name your pet pig ____." },
+      { cat: "Workplace Disasters", q: "A man in Ohio was fired on his first day after trying to bribe his supervisor with ____." },
+      { cat: "Suburban Politics", q: "A local HOA president called the police in 2021 because a neighbor's lawn ornament was wearing ____." },
+      { cat: "Bizarre Crimes", q: "Police in Florida arrested a man who attempted to rob a drive-thru while carrying a live ____." },
+      { cat: "Relationship Drama", q: "A couple broke off their engagement after arguing for six hours over the proper way to ____." },
+      { cat: "Modern Hazards", q: "A luxury hotel guest was banned for life after attempting to cook ____ using the room's electric iron." },
+      { cat: "Extreme Awkwardness", q: "During a formal dinner party, a guest panicked and hid ____ inside a potted plant." }
     ];
 
-    const actions = [
-      "accidentally replies-all with a brutally honest critique of",
-      "catches you faking an elaborate excuse to skip",
-      "discovers your secret, highly specific side hustle involving",
-      "demands you publicly defend your controversial opinion on",
-      "catches you eating their clearly labeled gourmet food in",
-      "walks in on you having a heated full-blown debate with",
-      "finds out you accidentally spent $500 of shared money on"
+    // Procedural Generator for Endless Fibbage-Style Prompts
+    const subjects = ["an overly ambitious manager", "a local HOA board member", "a disgruntled tenant", "a tech CEO", "an anonymous coworker", "a competitive neighbor"];
+    const weirdEvents = [
+      "was caught secretly replacing the office coffee with ____.",
+      "got banned from a luxury resort for insisting on bringing ____ into the sauna.",
+      "attempted to settle a heated argument by demanding a duel using ____.",
+      "accidentally ordered $1,500 worth of ____ on a shared company credit card.",
+      "tried to write off ____ as a legitimate business expense on their taxes."
     ];
 
-    const contexts = [
-      "a mandatory corporate team building retreat.",
-      "a high-stakes family holiday dinner.",
-      "a crowded neighborhood block party.",
-      "a professional networking event.",
-      "a weekend group trip in a tiny Airbnb.",
-      "a formal wedding reception during the speeches."
-    ];
-
-    const consequences = [
-      "Do you double down and own it, or fabricate a chaotic lie?",
-      "Who in the room do you immediately throw under the bus?",
-      "How do you negotiate your way out of this without moving away?",
-      "What is your immediate 5-second survival strategy?",
-      "Do you apologize profusely or pretend it was an intentional power move?"
-    ];
-
-    const templates = [
-      "Would you rather have {subject} read your unedited search history out loud, or spend 48 continuous hours with them on a road trip?",
-      "You get $10,000 deposited tax-free, but {subject} gets to make one binding decision about your personal schedule every week. Do you take it?",
-      "You are forced to explain {context} to {subject} using only hand gestures and severe eye contact. What's your opening move?",
-      "If you had to trade bank accounts with {subject} right now, who gets the worse deal and why?"
-    ];
-
-    function getRandomItem(arr) {
+    function getRandom(arr) {
       return arr[Math.floor(Math.random() * arr.length)];
     }
 
-    function generateQuestion() {
+    function generateFibbagePrompt() {
       if (Math.random() > 0.4) {
-        const sub = getRandomItem(subjects);
-        const act = getRandomItem(actions);
-        const ctx = getRandomItem(contexts);
-        const con = getRandomItem(consequences);
-        return `During ${ctx}, ${sub} ${act} your personal life. ${con}`;
+        return getRandom(fibbageQuestions);
       } else {
-        const tmpl = getRandomItem(templates);
-        const sub = getRandomItem(subjects);
-        const ctx = getRandomItem(contexts);
-        return tmpl.replace('{subject}', sub).replace('{context}', ctx);
+        const sub = getRandom(subjects);
+        const evt = getRandom(weirdEvents);
+        return {
+          cat: "Dynamic Dilemma",
+          q: `In 2023, ${sub} ${evt}`
+        };
       }
     }
 
-    function generateNextQuestion() {
-      const q = generateQuestion();
-      document.getElementById('question-display').innerText = q;
-      speak(q);
+    function nextFibbageQuestion() {
+      const item = generateFibbagePrompt();
+      document.getElementById('category-display').innerText = item.cat;
+      
+      // Highlight the blank visually
+      const formattedText = item.q.replace("____", '<span class="blank-highlight">__________</span>');
+      document.getElementById('question-display').innerHTML = formattedText;
+      
+      // Speak the prompt naturally
+      const spokenText = item.q.replace("____", "blank");
+      speak(spokenText);
     }
 
-    /* VOICE SYNTHESIS ENGINE */
+    /* GAME FLOW CONTROLS */
+    function startGame(mode) {
+      document.getElementById('main-menu').style.display = 'none';
+      document.getElementById('game-area').style.display = 'block';
+
+      const intro = (mode === 'host') ? getRandom(hostIntros) : getRandom(joinIntros);
+      speak(intro);
+      
+      // Display first prompt immediately
+      nextFibbageQuestion();
+    }
+
+    function returnToMenu() {
+      document.getElementById('game-area').style.display = 'none';
+      document.getElementById('main-menu').style.display = 'block';
+      speak(getRandom(menuIntros));
+    }
+
+    /* VOICE SYNTHESIS */
     function toggleAudio(enabled) {
       audioEnabled = enabled;
       if (audioEnabled) {
-        speak("Audio back on! Let's get weird.");
+        speak("Audio back on.");
       } else {
         window.speechSynthesis.cancel();
       }
@@ -400,38 +424,6 @@
       utterance.pitch = 1.1;
 
       window.speechSynthesis.speak(utterance);
-    }
-
-    /* NAVIGATION LOGIC */
-    function hostGame() {
-      document.getElementById('main-menu').style.display = 'none';
-      document.getElementById('game-area').style.display = 'block';
-      
-      const intro = getRandomItem(hostLines);
-      speak(intro);
-      
-      // Delay question voice slightly so host intro isn't cut off immediately
-      setTimeout(() => {
-        generateNextQuestion();
-      }, 2500);
-    }
-
-    function joinGame() {
-      document.getElementById('main-menu').style.display = 'none';
-      document.getElementById('game-area').style.display = 'block';
-      
-      const intro = getRandomItem(joinLines);
-      speak(intro);
-      
-      setTimeout(() => {
-        generateNextQuestion();
-      }, 2500);
-    }
-
-    function returnToMenu() {
-      document.getElementById('game-area').style.display = 'none';
-      document.getElementById('main-menu').style.display = 'block';
-      speak(getRandomItem(menuLines));
     }
   </script>
 </body>
