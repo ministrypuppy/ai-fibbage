@@ -39,13 +39,8 @@
       100% { border: 2px solid transparent; box-shadow: 0 4px 15px rgba(0,0,0,0.5); }
     }
 
-    body.urgent-timer {
-      animation: warningPulse 0.8s infinite;
-    }
-
-    body.urgent-timer .card {
-      animation: cardWarningPulse 0.8s infinite;
-    }
+    body.urgent-timer { animation: warningPulse 0.8s infinite; }
+    body.urgent-timer .card { animation: cardWarningPulse 0.8s infinite; }
   </style>
 </head>
 <body onclick="userInteracted()">
@@ -122,34 +117,22 @@
 
     function initVoice() {
       if (!('speechSynthesis' in window)) return;
-      
-      const setVoice = () => {
+
+      const pickVoice = () => {
         const voices = window.speechSynthesis.getVoices();
         if (!voices || voices.length === 0) return;
-        
-        // Target English male voices that sound natural or standard across browsers
-        const preferredMale = voices.find(v => 
-          v.lang.startsWith('en') && 
-          (
-            v.name.includes('Guy') || 
-            v.name.includes('David') || 
-            v.name.includes('George') || 
-            v.name.includes('Daniel') || 
-            v.name.includes('Alex') || 
-            v.name.includes('Google UK English Male') ||
-            v.name.includes('Google US English Male') ||
-            v.name.toLowerCase().includes('male')
-          )
-        );
 
-        // Fallback to any natural/English voice if specific male voice isn't present
-        const fallback = voices.find(v => v.lang.startsWith('en') && (v.name.includes('Natural') || v.name.includes('Google')));
-        hostVoice = preferredMale || fallback || voices.find(v => v.lang.startsWith('en')) || voices[0];
+        // Prioritize natural/online neural male voices over legacy robotic voices
+        hostVoice = voices.find(v => v.lang.startsWith('en') && (v.name.includes('Natural') || v.name.includes('Online')) && (v.name.includes('Guy') || v.name.includes('Christopher') || v.name.includes('Eric')))
+          || voices.find(v => v.lang.startsWith('en') && (v.name.includes('Google US English') || v.name.includes('Microsoft Guy') || v.name.includes('Daniel') || v.name.includes('Alex')))
+          || voices.find(v => v.lang.startsWith('en') && v.name.includes('Natural'))
+          || voices.find(v => v.lang.startsWith('en'))
+          || voices[0];
       };
 
-      setVoice();
+      pickVoice();
       if (window.speechSynthesis.onvoiceschanged !== undefined) {
-        window.speechSynthesis.onvoiceschanged = setVoice;
+        window.speechSynthesis.onvoiceschanged = pickVoice;
       }
     }
 
@@ -159,8 +142,8 @@
       window.speechSynthesis.cancel();
 
       const utterance = new SpeechSynthesisUtterance(text);
-      utterance.pitch = 0.95; // Slightly lower pitch for a natural male tone
-      utterance.rate = 1.05;  // Upbeat, engaging pace
+      utterance.pitch = 1.0;
+      utterance.rate = 1.0;
 
       if (hostVoice) utterance.voice = hostVoice;
 
