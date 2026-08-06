@@ -37,8 +37,8 @@
     .screen.blink-red { animation: screenBlink 0.6s infinite alternate; }
     .round-badge { background: #feca57; color: #1e1e2f; font-weight: 800; padding: 4px 12px; border-radius: 8px; font-size: 0.85rem; display: inline-block; margin-bottom: 10px; }
     
-    #host-bar { display: none; position: fixed; bottom: 12px; left: 50%; transform: translateX(-50%); background: rgba(24, 24, 36, 0.95); border: 1px solid #feca57; color: #fff; padding: 8px 20px; border-radius: 30px; font-weight: 700; font-size: 0.95rem; box-shadow: 0 4px 15px rgba(0,0,0,0.6); z-index: 999; display: flex; align-items: center; gap: 15px; }
-    #host-bar span { color: #feca57; letter-spacing: 2px; font-weight: 900; }
+    #global-control-bar { display: none; position: fixed; bottom: 12px; left: 50%; transform: translateX(-50%); background: rgba(24, 24, 36, 0.95); border: 1px solid #feca57; color: #fff; padding: 8px 20px; border-radius: 30px; font-weight: 700; font-size: 0.95rem; box-shadow: 0 4px 15px rgba(0,0,0,0.6); z-index: 999; align-items: center; gap: 15px; }
+    #global-control-bar span { color: #feca57; letter-spacing: 2px; font-weight: 900; }
 
     @keyframes pulseRed { from { transform: scale(1); } to { transform: scale(1.1); } }
     @keyframes screenBlink { from { background-color: rgba(255, 71, 87, 0.0); } to { background-color: rgba(255, 71, 87, 0.18); } }
@@ -46,8 +46,9 @@
 </head>
 <body>
 
-  <div id="host-bar">
-    <div>ROOM CODE: <span id="host-bar-code">----</span></div>
+  <!-- GLOBAL CONTROL BAR (Visible for Host & Connected Players between questions) -->
+  <div id="global-control-bar">
+    <div id="host-code-container" style="display:none;">ROOM CODE: <span id="bar-room-code">----</span></div>
     <button id="pause-game-btn" class="btn btn-pause" style="margin:0; padding:4px 12px; font-size:0.85rem;" onclick="togglePauseGame()">Pause Game</button>
   </div>
 
@@ -123,20 +124,19 @@
   <!-- STAGE 3: REVEAL -->
   <div id="screen-reveal" class="screen">
     <h2>The Truth Unveiled</h2>
-    <p class="subtitle">Next question in: <span id="reveal-timer" style="font-weight:900; color:#feca57;">10</span>s</p>
+    <p class="subtitle">Next screen in: <span id="reveal-timer" style="font-weight:900; color:#feca57;">10</span>s</p>
     <div id="reveal-container"></div>
-    <button id="host-next-btn" class="btn btn-host" style="display:none;" onclick="nextRoundOrScores()">Next Round Now</button>
   </div>
 
   <!-- STAGE 4: SCORES -->
   <div id="screen-scores" class="screen">
     <h2>Leaderboard</h2>
+    <p class="subtitle">Next question in: <span id="score-timer" style="font-weight:900; color:#feca57;">10</span>s</p>
     <div id="leaderboard-container" style="margin:20px 0;"></div>
     <div id="host-end-options" style="display:none; flex-direction: column; gap: 10px;">
       <button class="btn btn-host" onclick="restartSamePlayers()">Play Again - Same Players</button>
       <button class="btn btn-join" onclick="restartNewPlayers()">Play Again - New Players</button>
     </div>
-    <button id="host-continue-btn" class="btn btn-host" style="display:none;" onclick="nextQuestion()">Next Question Now</button>
   </div>
 
   <script>
@@ -331,7 +331,6 @@
       "tried to trade a car for", "built a shed out of", "got arrested carrying"
     ];
 
-    // All truths strictly <= 20 characters
     const shortTruthPool = [
       "live badger", "three gravy jugs", "golden plunger", "stolen gorilla", 
       "mannequin hands", "motorized cart", "taxidermy cat", "wet cement block", 
@@ -344,7 +343,8 @@
     const fallbackLies = [
       "a bag of expired coupons", "three broken toasters", "a suspiciously loud drum", 
       "a jar of pickled hot dogs", "a vintage lava lamp", "a signed poster of Shrek",
-      "a heavy bag of mulch", "a box of VHS tapes", "a plastic flamingo"
+      "a heavy bag of mulch", "a box of VHS tapes", "a plastic flamingo",
+      "a rusted wrench set", "an old bowling shoe", "a single green sock"
     ];
 
     const usedSignatures = new Set();
@@ -390,6 +390,7 @@
       clearInterval(timerInterval);
       timeLeft = 45;
       isPaused = false;
+      updatePauseButtonUI();
       const el = document.getElementById(elementId);
       el.classList.remove('warning');
       el.innerText = timeLeft;
@@ -420,6 +421,16 @@
 
     function togglePauseGame() {
       isPaused = !isPaused;
+      updatePauseButtonUI();
+      
+      if (isHost) {
+        broadcastToAll({ type: 'TOGGLE_PAUSE', isPaused });
+      } else if (hostConn && hostConn.open) {
+        hostConn.send({ type: 'REQUEST_PAUSE', isPaused });
+      }
+    }
+
+    function updatePauseButtonUI() {
       const btn = document.getElementById('pause-game-btn');
       if (isPaused) {
         btn.innerText = "Resume Game";
@@ -428,7 +439,20 @@
         btn.innerText = "Pause Game";
         btn.style.background = "linear-gradient(135deg, #ff4757, #ffa502)";
       }
-      broadcastToAll({ type: 'TOGGLE_PAUSE', isPaused });
+    }
+
+    function setGlobalControlBarVisible(visible, showRoomCode = false) {
+      const bar = document.getElementById('global-control-bar');
+      const codeContainer = document.getElementById('host-code-container');
+      if (visible) {
+        bar.style.display = 'flex';
+        codeContainer.style.display = showRoomCode ? 'block' : 'none';
+        if (showRoomCode) {
+          document.getElementById('bar-room-code').innerText = roomCode;
+        }
+      } else {
+        bar.style.display = 'none';
+      }
     }
 
     function broadcastToAll(data) {
@@ -451,9 +475,6 @@
       usedSignatures.clear();
 
       document.getElementById('host-code-display').innerText = roomCode;
-      document.getElementById('host-bar-code').innerText = roomCode;
-      document.getElementById('host-next-btn').style.display = 'block';
-      document.getElementById('host-continue-btn').style.display = 'none';
       document.getElementById('host-end-options').style.display = 'none';
 
       peer = new Peer('FS-' + roomCode);
@@ -495,6 +516,11 @@
         const p = players.find(x => x.name === data.name);
         if (p) p.currentVote = data.vote;
         if (players.every(p => p.currentVote !== '')) calculateAndShowReveal();
+      }
+      if (data.type === 'REQUEST_PAUSE') {
+        isPaused = data.isPaused;
+        updatePauseButtonUI();
+        broadcastToAll({ type: 'TOGGLE_PAUSE', isPaused });
       }
     }
 
@@ -562,6 +588,7 @@
       if (data.type === 'PLAY_SOUND') playSound(data.sound);
       if (data.type === 'TOGGLE_PAUSE') {
         isPaused = data.isPaused;
+        updatePauseButtonUI();
       }
       if (data.type === 'UPDATE_SUBMISSIONS') {
         players = data.players;
@@ -591,13 +618,13 @@
     function startFibbageGame() {
       playSound('click');
       broadcastSound('click');
-      if (isHost) document.getElementById('host-bar').style.display = 'flex';
       if (players.length === 0) addBotPlayer();
       currentQuestionIndex = 0;
       nextQuestion();
     }
 
     function nextQuestion() {
+      setGlobalControlBarVisible(false);
       if (currentQuestionIndex >= 6) {
         const sorted = [...players].sort((a,b) => b.score - a.score);
         const leader = sorted.length > 0 ? sorted[0].name : "Nobody";
@@ -663,14 +690,21 @@
 
       startTimer('timer-lie', () => {
         if (!isHost && document.getElementById('lie-input-container').style.display !== 'none') {
-          document.getElementById('user-lie-input').value = currentQ.decoys[0];
+          // Assign unique fallback or decoy to active player who timed out
+          assignTimeoutLieForMe();
           submitLie();
         } else if (isHost) {
-          // Fill distinct lies for any player who didn't submit
           fillTimeoutLies();
           startVotingStage();
         }
       });
+    }
+
+    function assignTimeoutLieForMe() {
+      let pool = [...fallbackLies, ...currentQ.decoys].sort(() => Math.random() - 0.5);
+      // Find a unique one not taken by anyone else
+      let chosen = pool.find(item => !players.some(p => p.currentLie === item)) || pool[0];
+      document.getElementById('user-lie-input').value = chosen;
     }
 
     function fillTimeoutLies() {
@@ -678,8 +712,15 @@
       let fbIdx = 0;
       players.forEach(p => {
         if (!p.currentLie || p.currentLie === '') {
-          p.currentLie = availableFallbacks[fbIdx % availableFallbacks.length];
-          fbIdx++;
+          let chosen;
+          while (fbIdx < availableFallbacks.length) {
+            let candidate = availableFallbacks[fbIdx++];
+            if (!players.some(other => other.currentLie === candidate)) {
+              chosen = candidate;
+              break;
+            }
+          }
+          p.currentLie = chosen || `fake lie #${Math.floor(Math.random()*100)}` ;
         }
       });
     }
@@ -690,7 +731,12 @@
       playSound('click');
       broadcastSound('click');
       let lieInput = document.getElementById('user-lie-input');
-      let lie = lieInput.value.trim() || currentQ.decoys[0];
+      let lie = lieInput.value.trim();
+
+      if (!lie) {
+        assignTimeoutLieForMe();
+        lie = lieInput.value.trim();
+      }
       
       if (lie.toLowerCase() === currentQ.truth.toLowerCase()) {
         alert("That's the right answer! Give a convincing lie instead.");
@@ -840,30 +886,32 @@
       });
 
       container.innerHTML = html;
-      document.getElementById('host-next-btn').style.display = isHost ? 'block' : 'none';
 
-      // Auto advance after 10 seconds if host
-      if (isHost) {
-        clearInterval(transitionTimerInterval);
-        let secondsLeft = 10;
-        document.getElementById('reveal-timer').innerText = secondsLeft;
-        transitionTimerInterval = setInterval(() => {
-          if (isPaused) return;
-          secondsLeft--;
-          document.getElementById('reveal-timer').innerText = secondsLeft;
-          if (secondsLeft <= 0) {
-            clearInterval(transitionTimerInterval);
-            nextRoundOrScores();
-          }
-        }, 1000);
-      }
+      // Enable the pause/control bar between questions (Reveal & Scoreboard)
+      setGlobalControlBarVisible(true, isHost);
+      isPaused = false;
+      updatePauseButtonUI();
+
+      // 10 second timer for Reveal screen before proceeding to Scoreboard
+      clearInterval(transitionTimerInterval);
+      let revealSecondsLeft = 10;
+      document.getElementById('reveal-timer').innerText = revealSecondsLeft;
+      
+      transitionTimerInterval = setInterval(() => {
+        if (isPaused) return;
+        revealSecondsLeft--;
+        const timerEl = document.getElementById('reveal-timer');
+        if(timerEl) timerEl.innerText = revealSecondsLeft;
+        if (revealSecondsLeft <= 0) {
+          clearInterval(transitionTimerInterval);
+          moveToScoresScreen();
+        }
+      }, 1000);
     }
 
-    function nextRoundOrScores() {
+    function moveToScoresScreen() {
       clearInterval(transitionTimerInterval);
       playSound('click');
-      broadcastSound('click');
-      currentQuestionIndex++;
       broadcastToAll({ type: 'START_SCORES', players });
       setupScoresScreen();
     }
@@ -877,7 +925,7 @@
         speakAnnouncer("", 'leaderboard', sorted[0].name);
       }
 
-      const isGameOver = (currentQuestionIndex >= 6);
+      const isGameOver = (currentQuestionIndex >= 5);
 
       container.innerHTML = sorted.map((p, i) => `
         <div class="reveal-card" style="display:flex; justify-content:space-between; align-items:center;">
@@ -886,16 +934,33 @@
         </div>
       `).join('');
 
-      const btnContinue = document.getElementById('host-continue-btn');
       const endOptions = document.getElementById('host-end-options');
 
       if (isGameOver) {
-        btnContinue.style.display = 'none';
+        setGlobalControlBarVisible(false); // Hide pause bar at final game over
         endOptions.style.display = isHost ? 'flex' : 'none';
       } else {
         endOptions.style.display = 'none';
-        btnContinue.style.display = isHost ? 'block' : 'none';
-        btnContinue.onclick = () => { nextQuestion(); };
+        setGlobalControlBarVisible(true, isHost);
+        isPaused = false;
+        updatePauseButtonUI();
+
+        // 10 second timer on Scoreboard screen before next question
+        clearInterval(transitionTimerInterval);
+        let scoreSecondsLeft = 10;
+        const scoreTimerEl = document.getElementById('score-timer');
+        if(scoreTimerEl) scoreTimerEl.innerText = scoreSecondsLeft;
+
+        transitionTimerInterval = setInterval(() => {
+          if (isPaused) return;
+          scoreSecondsLeft--;
+          if(scoreTimerEl) scoreTimerEl.innerText = scoreSecondsLeft;
+          if (scoreSecondsLeft <= 0) {
+            clearInterval(transitionTimerInterval);
+            currentQuestionIndex++;
+            nextQuestion();
+          }
+        }, 1000);
       }
     }
 
