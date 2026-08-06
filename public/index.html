@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Endless Game Engine</title>
+  <title>Dilemma Dash</title>
   <style>
     * {
       box-sizing: border-box;
@@ -179,13 +179,13 @@
       font-weight: 600;
       line-height: 1.5;
       color: #f1f2f6;
-      min-height: 110px;
+      min-height: 120px;
       display: flex;
       align-items: center;
       justify-content: center;
       margin-bottom: 25px;
-      padding: 15px;
-      background: rgba(0, 0, 0, 0.2);
+      padding: 20px;
+      background: rgba(0, 0, 0, 0.25);
       border-radius: 12px;
       border-left: 4px solid #ff9ff3;
     }
@@ -252,16 +252,16 @@
     </div>
   </div>
 
-  <!-- Gameplay Screen -->
+  <!-- Gameplay Screen (Fixed Layout) -->
   <div id="game-area">
     <div class="game-card">
       <div id="question-display" class="question-box">
-        Loading your first dilemma...
+        Loading scenario...
       </div>
 
       <div class="game-controls">
         <button class="btn btn-join" onclick="generateNextQuestion()">Next Question</button>
-        <button class="btn" style="background: #ff6b6b; color: #fff;" onclick="returnToMenu()">Menu</button>
+        <button class="btn" style="background: #ff6b6b; color: #fff;" onclick="returnToMenu()">Main Menu</button>
       </div>
     </div>
   </div>
@@ -270,7 +270,28 @@
     let audioEnabled = true;
     let selectedVoice = null;
 
-    // PROCEDURAL GENERATOR DATA (Mature, Witty, Non-Raunchy)
+    /* ANNOUNCER RANDOMIZED DIALOGUE ARRAYS */
+    const hostLines = [
+      "Welcome to the host seat! Try not to ruin the game for everyone.",
+      "Look at you, running the show. Let's see how long this lasts.",
+      "Hosting a session! Hope you brought your questionable decisions.",
+      "Ah, the boss steps up. Let's get this party started!"
+    ];
+
+    const joinLines = [
+      "You joined! Hopefully, you brought your secret winning powers.",
+      "Welcome in! Prepare yourself for pure chaos.",
+      "A new player enters! Let's see what you've got.",
+      "You actually showed up! Alright, let's play."
+    ];
+
+    const menuLines = [
+      "Back to safety. Coward.",
+      "Main menu engaged. Take a breather.",
+      "Escaping so soon? Fine, catch your breath."
+    ];
+
+    /* INFINITE ADULT QUESTION GENERATOR (Witty & Mature) */
     const subjects = [
       "your landlord", "your direct manager", "your high school rival", "your mother-in-law", 
       "your local HOA president", "your favorite coworker", "your ex’s new partner", "your accountant"
@@ -303,7 +324,6 @@
       "Do you apologize profusely or pretend it was an intentional power move?"
     ];
 
-    // Additional standalone prompt templates to add even more structural variety
     const templates = [
       "Would you rather have {subject} read your unedited search history out loud, or spend 48 continuous hours with them on a road trip?",
       "You get $10,000 deposited tax-free, but {subject} gets to make one binding decision about your personal schedule every week. Do you take it?",
@@ -311,18 +331,21 @@
       "If you had to trade bank accounts with {subject} right now, who gets the worse deal and why?"
     ];
 
+    function getRandomItem(arr) {
+      return arr[Math.floor(Math.random() * arr.length)];
+    }
+
     function generateQuestion() {
-      // Pick randomly between dynamic assembly or structured templates
       if (Math.random() > 0.4) {
-        const sub = subjects[Math.floor(Math.random() * subjects.length)];
-        const act = actions[Math.floor(Math.random() * actions.length)];
-        const ctx = contexts[Math.floor(Math.random() * contexts.length)];
-        const con = consequences[Math.floor(Math.random() * consequences.length)];
+        const sub = getRandomItem(subjects);
+        const act = getRandomItem(actions);
+        const ctx = getRandomItem(contexts);
+        const con = getRandomItem(consequences);
         return `During ${ctx}, ${sub} ${act} your personal life. ${con}`;
       } else {
-        const tmpl = templates[Math.floor(Math.random() * templates.length)];
-        const sub = subjects[Math.floor(Math.random() * subjects.length)];
-        const ctx = contexts[Math.floor(Math.random() * contexts.length)];
+        const tmpl = getRandomItem(templates);
+        const sub = getRandomItem(subjects);
+        const ctx = getRandomItem(contexts);
         return tmpl.replace('{subject}', sub).replace('{context}', ctx);
       }
     }
@@ -333,7 +356,7 @@
       speak(q);
     }
 
-    /* Voice & Audio Engine */
+    /* VOICE SYNTHESIS ENGINE */
     function toggleAudio(enabled) {
       audioEnabled = enabled;
       if (audioEnabled) {
@@ -374,30 +397,41 @@
       const utterance = new SpeechSynthesisUtterance(text);
       if (selectedVoice) utterance.voice = selectedVoice;
       utterance.rate = 1.05;
-      utterance.pitch = 1.1; // Slightly expressive and funny
+      utterance.pitch = 1.1;
 
       window.speechSynthesis.speak(utterance);
     }
 
-    /* Screen Flow */
+    /* NAVIGATION LOGIC */
     function hostGame() {
       document.getElementById('main-menu').style.display = 'none';
       document.getElementById('game-area').style.display = 'block';
-      speak("Hosting a session! Hope you brought your bad decisions.");
-      generateNextQuestion();
+      
+      const intro = getRandomItem(hostLines);
+      speak(intro);
+      
+      // Delay question voice slightly so host intro isn't cut off immediately
+      setTimeout(() => {
+        generateNextQuestion();
+      }, 2500);
     }
 
     function joinGame() {
       document.getElementById('main-menu').style.display = 'none';
       document.getElementById('game-area').style.display = 'block';
-      speak("Welcome in! Prepare yourself.");
-      generateNextQuestion();
+      
+      const intro = getRandomItem(joinLines);
+      speak(intro);
+      
+      setTimeout(() => {
+        generateNextQuestion();
+      }, 2500);
     }
 
     function returnToMenu() {
       document.getElementById('game-area').style.display = 'none';
       document.getElementById('main-menu').style.display = 'block';
-      speak("Back to safety.");
+      speak(getRandomItem(menuLines));
     }
   </script>
 </body>
