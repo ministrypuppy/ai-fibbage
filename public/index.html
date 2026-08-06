@@ -1,1026 +1,177 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Fool School</title>
-  <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
-  <style>
-    * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
-    body { background: linear-gradient(135deg, #181824, #28283d); color: #fff; min-height: 100vh; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 20px; padding-bottom: 70px; transition: background 0.5s ease; position: relative; }
-    body.final-round { background: linear-gradient(135deg, #2a0808, #4a1515); }
-    
-    body.edge-flash::after {
-      content: '';
-      position: fixed;
-      top: 0; left: 0; right: 0; bottom: 0;
-      border: 6px solid rgba(255, 71, 87, 0.6);
-      pointer-events: none;
-      box-shadow: inset 0 0 30px rgba(255, 71, 87, 0.4);
-      animation: edgeFlashAnim 0.6s infinite alternate;
-      z-index: 998;
-    }
-    @keyframes edgeFlashAnim { from { opacity: 0.3; } to { opacity: 1.0; } }
-
-    .screen { display: none; background: rgba(255, 255, 255, 0.05); backdrop-filter: blur(12px); border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 20px; padding: 30px; width: 100%; max-width: 520px; text-align: center; box-shadow: 0 15px 35px rgba(0,0,0,0.5); z-index: 2; }
-    .screen.active { display: block; }
-    h1 { font-size: 2.5rem; font-weight: 800; background: linear-gradient(45deg, #ff6b6b, #feca57, #48dbfb, #ff9ff3); -webkit-background-clip: text; -webkit-text-fill-color: transparent; margin-bottom: 5px; }
-    .subtitle { color: #a0a0c0; font-size: 0.95rem; margin-bottom: 25px; }
-    .btn { background: #48dbfb; color: #1e1e2f; border: none; padding: 14px 20px; font-size: 1.05rem; font-weight: 700; border-radius: 12px; cursor: pointer; transition: all 0.2s; width: 100%; margin-top: 10px; }
-    .btn:hover { transform: translateY(-2px); box-shadow: 0 6px 15px rgba(72, 219, 251, 0.4); }
-    .btn-host { background: linear-gradient(135deg, #ff9ff3, #feca57); color: #1e1e2f; }
-    .btn-join { background: linear-gradient(135deg, #48dbfb, #1dd1a1); color: #1e1e2f; }
-    .btn-sec { background: rgba(255,255,255,0.15); color: #fff; }
-    .btn-pause { background: linear-gradient(135deg, #ff4757, #ffa502); color: #fff; }
-    .input-field { width: 100%; padding: 12px; border-radius: 10px; border: 1px solid rgba(255,255,255,0.2); background: rgba(0,0,0,0.3); color: #fff; font-size: 1.1rem; margin-bottom: 15px; outline: none; text-align: center; }
-    .code-box { font-size: 3rem; font-weight: 900; letter-spacing: 6px; color: #feca57; background: rgba(0,0,0,0.3); padding: 12px; border-radius: 12px; border: 2px dashed #feca57; margin: 15px 0; }
-    .player-list { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; margin: 15px 0; min-height: 40px; }
-    .player-chip { background: rgba(72, 219, 251, 0.2); border: 1px solid #48dbfb; color: #48dbfb; padding: 6px 14px; border-radius: 20px; font-weight: 700; font-size: 0.9rem; }
-    .question-box { font-size: 1.25rem; font-weight: 600; line-height: 1.4; padding: 18px; background: rgba(0,0,0,0.3); border-radius: 12px; border-left: 4px solid #48dbfb; margin-bottom: 20px; text-align: left; }
-    .blank-hl { color: #feca57; text-decoration: underline; font-weight: 800; }
-    .choice-btn { background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.2); color: #fff; padding: 14px; border-radius: 10px; font-size: 1rem; font-weight: 600; cursor: pointer; text-align: left; transition: all 0.2s; width: 100%; margin-bottom: 8px; }
-    .choice-btn:hover:not(:disabled) { background: rgba(255,255,255,0.2); border-color: #48dbfb; }
-    .reveal-card { background: rgba(0,0,0,0.3); border-radius: 10px; padding: 12px; margin-bottom: 10px; text-align: left; }
-    .reveal-answer { font-size: 1.1rem; font-weight: 700; }
-    .reveal-author { font-size: 0.85rem; color: #feca57; }
-    .reveal-voters { font-size: 0.85rem; color: #1dd1a1; margin-top: 4px; }
-    .truth { border: 2px solid #1dd1a1; }
-    .timer-badge { font-size: 1.5rem; font-weight: 900; background: rgba(0,0,0,0.4); padding: 8px 18px; border-radius: 30px; display: inline-block; margin-bottom: 15px; border: 2px solid #48dbfb; color: #48dbfb; }
-    .timer-badge.warning { border-color: #ff4757; color: #ff4757; animation: pulseRed 0.6s infinite alternate; }
-    .round-badge { background: #feca57; color: #1e1e2f; font-weight: 800; padding: 4px 12px; border-radius: 8px; font-size: 0.85rem; display: inline-block; margin-bottom: 10px; }
-    
-    #global-control-bar { display: none; position: fixed; bottom: 12px; left: 50%; transform: translateX(-50%); background: rgba(24, 24, 36, 0.95); border: 1px solid #feca57; color: #fff; padding: 8px 20px; border-radius: 30px; font-weight: 700; font-size: 0.95rem; box-shadow: 0 4px 15px rgba(0,0,0,0.6); z-index: 999; align-items: center; gap: 15px; }
-    #global-control-bar span { color: #feca57; letter-spacing: 2px; font-weight: 900; }
-
-    #host-watermark-footer { display: none; position: fixed; bottom: 8px; left: 15px; background: rgba(0,0,0,0.6); border: 1px solid rgba(254, 202, 87, 0.4); padding: 4px 12px; border-radius: 8px; font-size: 0.8rem; font-weight: 700; color: #feca57; letter-spacing: 1px; z-index: 9999; pointer-events: none; }
-
-    @keyframes pulseRed { from { transform: scale(1); } to { transform: scale(1.1); } }
-  </style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Erratic Law Enforcement Fibbage</title>
+    <style>
+        :root {
+            --bg-color: #0f1115;
+            --card-bg: #1a1d24;
+            --accent: #ffb703;
+            --text: #f8f9fa;
+            --text-muted: #adb5bd;
+        }
+        body {
+            font-family: system-ui, -apple-system, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text);
+            max-width: 850px;
+            margin: 40px auto;
+            padding: 20px;
+        }
+        h1 {
+            color: var(--accent);
+            text-align: center;
+            margin-bottom: 25px;
+            font-size: 2rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+        .announcer-panel {
+            background: linear-gradient(135deg, #212529, #343a40);
+            border-left: 5px solid var(--accent);
+            padding: 18px;
+            border-radius: 6px;
+            margin-bottom: 25px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+        }
+        .announcer-title {
+            font-size: 0.85rem;
+            text-transform: uppercase;
+            color: var(--accent);
+            font-weight: bold;
+            margin-bottom: 6px;
+            letter-spacing: 0.5px;
+        }
+        .announcer-text {
+            font-style: italic;
+            font-size: 1.05rem;
+            line-height: 1.4;
+        }
+        .game-card {
+            background-color: var(--card-bg);
+            border: 1px solid #2d3238;
+            border-radius: 8px;
+            padding: 30px;
+            margin-bottom: 20px;
+            box-shadow: 0 6px 12px rgba(0,0,0,0.4);
+            min-height: 100px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+        }
+        .question-text {
+            font-size: 1.35rem;
+            line-height: 1.6;
+            font-weight: 500;
+        }
+        .blank {
+            color: var(--accent);
+            background-color: rgba(255, 183, 3, 0.1);
+            padding: 2px 8px;
+            border-radius: 4px;
+            border: 1px dashed var(--accent);
+            font-family: monospace;
+        }
+        .controls {
+            display: flex;
+            gap: 12px;
+            justify-content: center;
+        }
+        button {
+            background-color: var(--accent);
+            color: #000;
+            border: none;
+            padding: 12px 24px;
+            font-weight: bold;
+            font-size: 1rem;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: transform 0.1s ease, background-color 0.2s ease;
+        }
+        button:hover {
+            background-color: #fb8500;
+            color: #fff;
+            transform: translateY(-2px);
+        }
+        button:active {
+            transform: translateY(0);
+        }
+    </style>
 </head>
 <body>
 
-  <div id="host-watermark-footer">ROOM CODE: <span id="watermark-room-code">----</span></div>
+    <h1>🚨 Erratic Law Enforcement Fibbage 🚨</h1>
 
-  <div id="global-control-bar">
-    <button id="pause-game-btn" class="btn btn-pause" style="margin:0; padding:4px 12px; font-size:0.85rem;" onclick="togglePauseGame()">Pause Game</button>
-  </div>
-
-  <div id="screen-main" class="screen active">
-    <h1>Fool School</h1>
-    <p class="subtitle">The Fill-in-the-Blank Lie Game</p>
-    <button class="btn btn-host" onclick="openHostLobby()">Host New Game</button>
-    <button class="btn btn-join" onclick="openJoinScreen()">Join Game</button>
-  </div>
-
-  <div id="screen-host-lobby" class="screen">
-    <h2>Room Code</h2>
-    <div class="code-box" id="host-code-display">...</div>
-    <p class="subtitle">Joined Players (<span id="player-count">0</span>):</p>
-    <div class="player-list" id="host-player-list"></div>
-    <button class="btn btn-host" onclick="startFibbageGame()">Start Game</button>
-    <button class="btn btn-sec" onclick="addBotPlayer()">+ Add AI Bot Player</button>
-    <button class="btn btn-sec" onclick="location.reload()">Cancel</button>
-  </div>
-
-  <div id="screen-join" class="screen">
-    <h2>Join Game</h2>
-    <p class="subtitle">Enter session details</p>
-    <input type="text" id="join-name" class="input-field" placeholder="Your Name" maxlength="12">
-    <input type="text" id="join-code" class="input-field" placeholder="4-Letter Room Code" maxlength="4" style="text-transform:uppercase;">
-    <button class="btn btn-join" onclick="submitPlayerJoin()">Enter Room</button>
-    <button class="btn btn-sec" onclick="showScreen('screen-main')">Back</button>
-  </div>
-
-  <div id="screen-player-wait" class="screen">
-    <h2>You're In!</h2>
-    <p class="subtitle" id="player-welcome-msg">Connecting to host...</p>
-    <div style="font-size: 3rem; margin: 20px 0;">⏳</div>
-  </div>
-
-  <div id="screen-submit-lie" class="screen">
-    <div id="round-indicator" class="round-badge">ROUND 1</div>
-    <div class="timer-badge" id="timer-lie">45</div>
-    <p class="subtitle" style="color:#ff9ff3; font-weight:700;" id="question-cat">Category</p>
-    <div class="question-box" id="question-prompt-submit">Prompt</div>
-    <div id="lie-input-container">
-      <input type="text" id="user-lie-input" class="input-field" placeholder="Enter a convincing lie..." maxlength="30">
-      <button class="btn btn-host" onclick="submitLie()">Submit Lie</button>
-    </div>
-    <div id="lie-submitted-msg" style="display:none;">
-      <p style="color:#1dd1a1; font-weight:700;">Lie Received!</p>
-      <p class="subtitle">Waiting for remaining players...</p>
-    </div>
-    <div id="host-submission-status" style="margin-top: 20px; text-align: left; display: none;">
-      <p style="font-weight: 700; color: #feca57; margin-bottom: 8px;">Submissions Tracker:</p>
-      <div id="host-sub-list" style="display: flex; flex-direction: column; gap: 4px;"></div>
-    </div>
-  </div>
-
-  <div id="screen-vote" class="screen">
-    <div class="timer-badge" id="timer-vote">45</div>
-    <h2>Find the Truth!</h2>
-    <div class="question-box" id="question-prompt-vote">Prompt</div>
-    <div id="choices-container"></div>
-    <div id="vote-submitted-msg" style="display:none;">
-      <p style="color:#1dd1a1; font-weight:700;">Vote Locked In!</p>
-      <p class="subtitle">Waiting for remaining votes...</p>
-    </div>
-  </div>
-
-  <div id="screen-reveal" class="screen">
-    <div class="timer-badge" id="timer-reveal">10</div>
-    <h2>The Truth Unveiled</h2>
-    <div id="reveal-container"></div>
-    <div id="reveal-continue-container" style="margin-top: 20px;">
-      <button id="reveal-continue-btn" class="btn btn-host" onclick="sendContinueSignal()">Continue</button>
-      <p class="subtitle" id="reveal-continue-status" style="margin-top: 8px; font-size:0.85rem;">Click to skip timer</p>
-    </div>
-  </div>
-
-  <div id="screen-scores" class="screen">
-    <div class="timer-badge" id="timer-score" style="display:none;">10</div>
-    <h2>Leaderboard</h2>
-    <div id="leaderboard-container" style="margin:20px 0;"></div>
-    
-    <div id="score-continue-container" style="margin-top: 20px;">
-      <button id="score-continue-btn" class="btn btn-host" onclick="sendContinueSignal()">Continue to Next Question</button>
-      <p class="subtitle" id="score-continue-status" style="margin-top: 8px; font-size:0.85rem;">Click to skip timer</p>
+    <div class="announcer-panel">
+        <div class="announcer-title">🎙️ Studio Announcer</div>
+        <div class="announcer-text" id="announcerSpeech">"Welcome back, badge-chasers! Let's see what municipal madness our boys in blue walked into today."</div>
     </div>
 
-    <div id="win-tally-box" style="margin-top: 15px; background: rgba(0,0,0,0.3); padding: 12px; border-radius: 10px; display: none; text-align: left;">
-      <p style="font-weight: 700; color: #feca57; margin-bottom: 6px; font-size: 0.9rem;">Series Lifetime Win Tally:</p>
-      <div id="win-tally-list" style="display: flex; flex-direction: column; gap: 4px; font-size: 0.85rem;"></div>
+    <div class="game-card">
+        <div class="question-text" id="questionDisplay">Click below to start the chaos...</div>
     </div>
 
-    <div id="host-end-options" style="display:none; flex-direction: column; gap: 10px; margin-top:15px;">
-      <button class="btn btn-host" onclick="restartSamePlayers()">Play Again - Same Players</button>
-      <button class="btn btn-join" onclick="restartNewPlayers()">Play Again - New Players</button>
+    <div class="controls">
+        <button onclick="nextRound()">Next Erratic Question</button>
+        <button onclick="speakAnnouncer()">🔊 Hear Announcer</button>
     </div>
-  </div>
 
-  <script>
-    const AudioCtx = window.AudioContext || window.webkitAudioContext;
-    let actx = null;
-    let musicInterval = null;
-    let musicType = 'none';
+    <script>
+        // Unlimited / Diverse Erratic Templates with variable blank positions (Start, Middle, End)
+        const templates = [
+            // Blank at Beginning
+            { template: "<span class='blank'>[__]</span> was discovered by state troopers hidden inside the spare tire compartment of a suspect's minivan during a routine midnight traffic stop.", announcer: "Nothing screams 'probable cause' quite like automotive upholstery stuffed with contraband." },
+            { template: "<span class='blank'>[__]</span> served as the sole alibi for a confused motorist who tried to explain to highway patrol why he was driving backward down an interstate off-ramp.", announcer: "Bold legal strategy, Cotton. Let's see if it pays off in traffic court." },
+            { template: "<span class='blank'>[__]</span> caused a massive three-hour standoff between local SWAT operators and an erratic raccoon barricaded inside a municipal utility shed.", announcer: "Negotiators brought trash bags and peanut butter, but negotiations broke down immediately." },
 
-    function initAudio() { if (!actx) actx = new AudioCtx(); }
+            // Blank in Middle
+            { template: "A bewildered precinct captain in Ohio had to file an emergency report after a stray goat broke into the evidence locker and consumed <span class='blank'>[__]</span>.", announcer: "That's going to make a fascinating exhibit C for the prosecution." },
+            { template: "Federal agents raiding an underground counterfeiting ring were stunned to discover the entire multimillion-dollar operation was financed entirely by <span class='blank'>[__]</span>.", announcer: "Who needs offshore bank accounts when you have pure unadulterated hustle?" },
+            { template: "An overzealous security guard at a regional courthouse called 911 in a blind panic after mistaking <span class='blank'>[__]</span> for an active explosive device.", announcer: "Crisis averted, though the janitor's dignity took heavy casualties." },
 
-    function playSound(type, isLouder = false) {
-      initAudio();
-      if (!actx) return;
-      const now = actx.currentTime;
-      const osc = actx.createOscillator();
-      const gain = actx.createGain();
-      osc.connect(gain);
-      gain.connect(actx.destination);
+            // Blank at End
+            { template: "When a fleeing suspect tried to scale a barbed-wire fence to evade county sheriff deputies, he was ultimately subdued not by a K-9 unit, but by a swarm of <span class='blank'>[__]</span>.", announcer: "Mother Nature always handles her own law enforcement work." },
+            { template: "British transport police had to shut down an entire underground station platform after an enraged commuter began aggressively swatting ticket inspectors with a <span class='blank'>[__]</span>.", announcer: "Standard London transit etiquette really has gone downhill." },
+            { template: "Local municipal judges in New Mexico started sentencing repeat traffic offenders to spend every Saturday <span class='blank'>[__]</span>.", announcer: "That's community service with a heavy side of psychological torment." }
+        ];
 
-      let volumeMultiplier = isLouder ? 2.2 : 1.0;
+        let currentAnnouncerLine = "Welcome back, badge-chasers! Let's see what municipal madness our boys in blue walked into today.";
 
-      if (type === 'click') {
-        osc.frequency.setValueAtTime(400, now);
-        osc.frequency.exponentialRampToValueAtTime(800, now + 0.08);
-        gain.gain.setValueAtTime(0.15 * volumeMultiplier, now);
-        gain.gain.exponentialRampToValueAtTime(0.01, now + 0.08);
-        osc.start(now); osc.stop(now + 0.08);
-      } else if (type === 'tick') {
-        osc.type = 'triangle';
-        osc.frequency.setValueAtTime(1000, now);
-        let tickGain = isLouder ? 0.18 : 0.05;
-        gain.gain.setValueAtTime(tickGain, now);
-        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.05);
-        osc.start(now); osc.stop(now + 0.05);
-      } else if (type === 'correct') {
-        osc.type = 'sine';
-        osc.frequency.setValueAtTime(523.25, now);
-        osc.frequency.setValueAtTime(659.25, now + 0.1);
-        osc.frequency.setValueAtTime(783.99, now + 0.2);
-        gain.gain.setValueAtTime(0.2, now);
-        gain.gain.exponentialRampToValueAtTime(0.01, now + 0.35);
-        osc.start(now); osc.stop(now + 0.35);
-      } else if (type === 'fool') {
-        osc.type = 'sawtooth';
-        osc.frequency.setValueAtTime(200, now);
-        osc.frequency.linearRampToValueAtTime(90, now + 0.25);
-        gain.gain.setValueAtTime(0.2, now);
-        gain.gain.exponentialRampToValueAtTime(0.01, now + 0.25);
-        osc.start(now); osc.stop(now + 0.25);
-      }
-    }
+        function nextRound() {
+            // Pick a random template
+            const randomIndex = Math.floor(Math.random() * templates.length);
+            const selected = templates[randomIndex];
 
-    function startBackgroundMusic(type) {
-      stopBackgroundMusic();
-      initAudio();
-      if (!actx) return;
-      musicType = type;
-      let step = 0;
-
-      const notesPlayful = [261.63, 329.63, 392.00, 523.25, 493.88, 392.00, 329.63, 293.66];
-      const notesHighStakes = [130.81, 155.56, 196.00, 233.08, 196.00, 155.56, 130.81, 110.00];
-
-      musicInterval = setInterval(() => {
-        if (!actx || isPaused) return;
-        const now = actx.currentTime;
-        const osc = actx.createOscillator();
-        const gain = actx.createGain();
-        osc.connect(gain);
-        gain.connect(actx.destination);
-
-        const notes = (musicType === 'highstakes') ? notesHighStakes : notesPlayful;
-        osc.type = (musicType === 'highstakes') ? 'sawtooth' : 'triangle';
-        
-        osc.frequency.setValueAtTime(notes[step % notes.length], now);
-        gain.gain.setValueAtTime(0.04, now);
-        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.25);
-        
-        osc.start(now);
-        osc.stop(now + 0.25);
-        step++;
-      }, 300);
-    }
-
-    function stopBackgroundMusic() {
-      if (musicInterval) {
-        clearInterval(musicInterval);
-        musicInterval = null;
-      }
-      musicType = 'none';
-    }
-
-    let isHost = false;
-    let isPaused = false;
-    let roomCode = '';
-    let myName = '';
-    let players = [];
-    let currentQ = null;
-    let currentQuestionIndex = 0; 
-    let timerInterval = null;
-    let timeLeft = 45;
-    
-    let peer = null;
-    let hostConn = null;
-    let clientConns = [];
-
-    let pausedByPlayer = '';
-    let previousRosterNames = [];
-    let seriesWinTally = {}; 
-    let recentSignaturesHistory = [];
-
-    // Vast expanded pools for virtually unlimited combinatorial variety
-    const categoryAdjectives = ["Midnight", "Questionable", "Bizarre", "Underground", "Weird", "Unusual", "Local", "Dubious", "Strange", "Awkward", "Shady", "Chaotic", "Absurd", "Notorious", "Surreal", "Secret", "Forbidden", "Wild", "Unspoken", "Deranged"];
-    const categoryNouns = ["Confessions", "Decisions", "Suburbs", "Markets", "Laws", "Heists", "Legends", "Antics", "Habits", "Romances", "Encounters", "Dealings", "Mishaps", "Capers", "Jobs", "Oddities", "Vices", "Fiascos", "Scandals", "Tragedies"];
-    const categoryThemes = ["Chronicles", "Files", "Incidents", "Mishaps", "Secrets", "Confessions", "Tales", "Reports", "Anomalies", "Sketches", "Logs", "Archives", "Journals", "Exhibits", "Records"];
-
-    const actorPool = [
-      "a confused accountant", "an overly confident barista", "a guy wearing swim trunks", 
-      "a local librarian", "an aspiring influencer", "a retired plumber",
-      "a board game nerd", "an undercover cop", "a rogue delivery driver",
-      "an intoxicated bachelor", "a desperate ex-partner", "a shady motel manager",
-      "a wild bachelorette", "a caffeine-addicted student", "an eccentric millionaire",
-      "a disgruntled zookeeper", "a rogue tattoo artist", "an overly competitive dad",
-      "a rogue mall Santa", "a panicked algebra teacher", "a chaotic crypto bro"
-    ];
-
-    const actionPool = [
-      "attempted to fence a stolen", "tried to bribe a bouncer with", "was pulled over carrying",
-      "got stuck trying to recover", "caused an evacuation over", "was banned for hoarding",
-      "tried to trade a luxury car for", "built an illegal shrine out of", "got arrested wearing nothing but",
-      "smuggled across state lines", "lost a high-stakes bet involving", "tried to flush down the toilet",
-      "secretly duct-taped to the ceiling", "hid inside a giant hollow", "pawned off to an unsuspecting",
-      "traded an entire collection of", "tried to smuggle across customs in", "got evicted for hiding"
-    ];
-
-    const objectPool = [
-      "live badger", "three gravy jugs", "golden plunger", "stolen gorilla", 
-      "mannequin hands", "motorized cart", "taxidermy cat", "wet cement block", 
-      "hollow log", "foam tile pack", "medieval sword", "neon sign", 
-      "quail egg jar", "karaoke box", "bowling balls", "Danny DeVito bust", 
-      "frozen turkey", "whoopie cushions", "antique doorknob", "rubber chicken",
-      "bag of onions", "giant burrito", "box of crayons", "plastic skull",
-      "used dental floss", "jar of pickled eggs", "inflatable dinosaur", "box of expired lube",
-      "rusty bear trap", "tub of mayonnaise", "cheap sex toy", "bag of adult diapers",
-      "jar of expired mustard", "cardboard cutout of Batman", "bag of glitter", "box of bowling shoes"
-    ];
-
-    function generateUniqueQuestion() {
-      let attempts = 0;
-      while (attempts < 100) {
-        const adj = categoryAdjectives[Math.floor(Math.random() * categoryAdjectives.length)];
-        const noun = categoryNouns[Math.floor(Math.random() * categoryNouns.length)];
-        const theme = categoryThemes[Math.floor(Math.random() * categoryThemes.length)];
-        const dynamicCat = `${adj} ${noun}: ${theme} Vol. ${Math.floor(Math.random() * 9999) + 1}`;
-
-        const actor = actorPool[Math.floor(Math.random() * actorPool.length)];
-        const action = actionPool[Math.floor(Math.random() * actionPool.length)];
-        const truth = objectPool[Math.floor(Math.random() * objectPool.length)];
-
-        const qText = `Police reports and witness testimonies confirmed that ${actor} ${action} ____.`;
-        const signature = qText + "|" + truth;
-
-        // Ensure absolute uniqueness from recent history and that truth is short enough
-        if (!recentSignaturesHistory.includes(signature) && truth.length <= 25) {
-          recentSignaturesHistory.push(signature);
-          if (recentSignaturesHistory.length > 30) recentSignaturesHistory.shift();
-
-          let availableDecoys = objectPool.filter(o => o !== truth);
-          availableDecoys.sort(() => Math.random() - 0.5);
-          let decoys = availableDecoys.slice(0, 3);
-
-          return { cat: dynamicCat, q: qText, truth, decoys };
-        }
-        attempts++;
-      }
-      
-      // Fallback safeguard if loop exhausts
-      return {
-        cat: "Surreal Chronicles: Files Vol. 99",
-        q: "Witnesses reported seeing a local resident proudly carrying ____ down Main Street.",
-        truth: "live badger",
-        decoys: ["golden plunger", "stolen gorilla", "motorized cart"]
-      };
-    }
-
-    function showScreen(id) {
-      document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
-      document.getElementById(id).classList.add('active');
-    }
-
-    function updateHostWatermarkVisibility() {
-      const watermark = document.getElementById('host-watermark-footer');
-      if (isHost && roomCode) {
-        watermark.style.display = 'block';
-        document.getElementById('watermark-room-code').innerText = roomCode;
-      } else {
-        watermark.style.display = 'none';
-      }
-    }
-
-    function startTimer(elementId, seconds, onComplete) {
-      clearInterval(timerInterval);
-      timeLeft = seconds;
-      isPaused = false;
-      pausedByPlayer = '';
-      updatePauseButtonUI();
-      const el = document.getElementById(elementId);
-      if (el) {
-        el.style.display = 'inline-block';
-        el.classList.remove('warning');
-        el.innerText = timeLeft;
-      }
-      document.body.classList.remove('edge-flash');
-
-      timerInterval = setInterval(() => {
-        if (isPaused) return;
-        timeLeft--;
-        if (el) el.innerText = timeLeft;
-        
-        if (seconds === 45 && timeLeft <= 10) {
-          if (el) el.classList.add('warning');
-          document.body.classList.add('edge-flash');
-          playSound('tick', true);
-          broadcastSound('tick', true);
+            document.getElementById('questionDisplay').innerHTML = selected.template;
+            document.getElementById('announcerSpeech').innerText = `"${selected.announcer}"`;
+            currentAnnouncerLine = selected.announcer;
         }
 
-        if (timeLeft <= 0) {
-          clearInterval(timerInterval);
-          document.body.classList.remove('edge-flash');
-          if (el) el.style.display = 'none';
-          if (onComplete) onComplete();
-        }
-      }, 1000);
-    }
+        function speakAnnouncer() {
+            if ('speechSynthesis' in window) {
+                window.speechSynthesis.cancel(); // Stop any ongoing speech
+                const utterance = new SpeechSynthesisUtterance(currentAnnouncerLine);
+                utterance.pitch = 0.9; // Lower pitch for natural male voice profile
+                utterance.rate = 1.0;
+                
+                // Try to select a natural-sounding English male voice if available
+                const voices = window.speechSynthesis.getVoices();
+                const maleVoice = voices.find(v => v.lang.startsWith('en') && (v.name.toLowerCase().includes('male') || v.name.toLowerCase().includes('david') || v.name.toLowerCase().includes('george') || v.name.toLowerCase().includes('google us english')));
+                if (maleVoice) {
+                    utterance.voice = maleVoice;
+                }
 
-    function stopTimer() { 
-      clearInterval(timerInterval); 
-      document.body.classList.remove('edge-flash');
-    }
-
-    function togglePauseGame() {
-      const currentPlayerName = isHost ? "HOST" : myName;
-
-      if (isPaused) {
-        if (pausedByPlayer && pausedByPlayer !== currentPlayerName && !isHost) {
-          alert(`Game was paused by ${pausedByPlayer}. Only they or the host can unpause.`);
-          return;
-        }
-        isPaused = false;
-        pausedByPlayer = '';
-      } else {
-        isPaused = true;
-        pausedByPlayer = currentPlayerName;
-      }
-
-      updatePauseButtonUI();
-      
-      if (isHost) {
-        broadcastToAll({ type: 'TOGGLE_PAUSE', isPaused, pausedByPlayer });
-      } else if (hostConn && hostConn.open) {
-        hostConn.send({ type: 'REQUEST_PAUSE', isPaused, pausedByPlayer });
-      }
-    }
-
-    function updatePauseButtonUI() {
-      const btn = document.getElementById('pause-game-btn');
-      const currentPlayerName = isHost ? "HOST" : myName;
-      
-      if (isPaused) {
-        if (pausedByPlayer && pausedByPlayer !== currentPlayerName && !isHost) {
-          btn.innerText = `Paused by ${pausedByPlayer}`;
-          btn.style.background = "#718093";
-        } else {
-          btn.innerText = "Resume Game";
-          btn.style.background = "linear-gradient(135deg, #1dd1a1, #48dbfb)";
-        }
-      } else {
-        btn.innerText = "Pause Game";
-        btn.style.background = "linear-gradient(135deg, #ff4757, #ffa502)";
-      }
-    }
-
-    function setGlobalControlBarVisible(visible) {
-      const bar = document.getElementById('global-control-bar');
-      if (visible) {
-        bar.style.display = 'flex';
-      } else {
-        bar.style.display = 'none';
-      }
-    }
-
-    function broadcastToAll(data) {
-      clientConns.forEach(c => { if(c && c.open) c.send(data); });
-    }
-
-    function broadcastSound(type, isLouder = false) {
-      broadcastToAll({ type: 'PLAY_SOUND', sound: type, isLouder });
-    }
-
-    function openHostLobby() {
-      initAudio();
-      isHost = true;
-      roomCode = Math.random().toString(36).substring(2, 6).toUpperCase();
-      myName = "HOST";
-      players = [];
-      clientConns = [];
-      currentQuestionIndex = 0;
-      recentSignaturesHistory = [];
-
-      updateHostWatermarkVisibility();
-      document.getElementById('host-code-display').innerText = roomCode;
-      document.getElementById('host-end-options').style.display = 'none';
-
-      peer = new Peer('FS-' + roomCode);
-
-      peer.on('open', () => {
-        renderHostLobby();
-        showScreen('screen-host-lobby');
-      });
-
-      peer.on('connection', (conn) => {
-        clientConns.push(conn);
-        conn.on('data', (data) => handleHostIncomingData(conn, data));
-      });
-    }
-
-    function handleHostIncomingData(conn, data) {
-      if (data.type === 'JOIN_REQ') {
-        const existingPlayer = players.find(p => p.name === data.name);
-        if (!existingPlayer) {
-          players.push({ name: data.name, score: 0, currentLie: '', currentVote: '' });
-          playSound('click');
-          broadcastSound('click');
-        } else {
-          existingPlayer.connection = conn;
-        }
-        renderHostLobby();
-        conn.send({ type: 'JOIN_OK' });
-        broadcastToAll({ type: 'SYNC_PLAYERS', players });
-      }
-      if (data.type === 'SUBMIT_LIE') {
-        const p = players.find(x => x.name === data.name);
-        if (p) p.currentLie = data.lie;
-        
-        updateHostSubmissionTracker();
-        broadcastToAll({ type: 'UPDATE_SUBMISSIONS', players });
-
-        if (players.every(p => p.currentLie !== '')) startVotingStage();
-      }
-      if (data.type === 'SUBMIT_VOTE') {
-        const p = players.find(x => x.name === data.name);
-        if (p) p.currentVote = data.vote;
-        if (players.every(p => p.currentVote !== '')) calculateAndShowReveal();
-      }
-      if (data.type === 'REQUEST_PAUSE') {
-        if (data.isPaused) {
-          isPaused = true;
-          pausedByPlayer = data.pausedByPlayer;
-        } else {
-          if (pausedByPlayer === data.pausedByPlayer || data.pausedByPlayer === 'HOST' || isHost) {
-            isPaused = false;
-            pausedByPlayer = '';
-          }
-        }
-        updatePauseButtonUI();
-        broadcastToAll({ type: 'TOGGLE_PAUSE', isPaused, pausedByPlayer });
-      }
-      if (data.type === 'CONTINUE_REQ') {
-        if (!isPaused) {
-          triggerNextStageFromContinue();
-        }
-      }
-    }
-
-    function updateHostSubmissionTracker() {
-      const container = document.getElementById('host-sub-list');
-      container.innerHTML = players.map(p => {
-        const submitted = p.currentLie !== '';
-        return `<div style="font-size:0.9rem; display:flex; justify-content:space-between; background:rgba(0,0,0,0.2); padding:6px 10px; border-radius:6px;">
-          <span>${p.name}</span>
-          <span style="color: ${submitted ? '#1dd1a1' : '#ff6b6b'}; font-weight:700;">${submitted ? '✓ Submitted' : '⏳ Thinking...'}</span>
-        </div>`;
-      }).join('');
-    }
-
-    function renderHostLobby() {
-      document.getElementById('player-count').innerText = players.length;
-      document.getElementById('host-player-list').innerHTML = players.map(p => `<div class="player-chip">${p.name}</div>`).join('');
-    }
-
-    function addBotPlayer() {
-      initAudio();
-      playSound('click');
-      broadcastSound('click');
-      const botName = "Bot_" + (players.length + 1);
-      players.push({ name: botName, score: 0, currentLie: '', currentVote: '' });
-      renderHostLobby();
-      broadcastToAll({ type: 'SYNC_PLAYERS', players });
-    }
-
-    function openJoinScreen() {
-      initAudio();
-      playSound('click');
-      isHost = false;
-      updateHostWatermarkVisibility();
-      showScreen('screen-join');
-    }
-
-    function submitPlayerJoin() {
-      initAudio();
-      playSound('click');
-      myName = document.getElementById('join-name').value.trim();
-      const code = document.getElementById('join-code').value.trim().toUpperCase();
-
-      if (!myName || !code) return alert("Please enter your name and room code!");
-
-      localStorage.setItem('fs_room', code);
-      localStorage.setItem('fs_name', myName);
-
-      showScreen('screen-player-wait');
-      document.getElementById('player-welcome-msg').innerText = `Connecting to room ${code}...`;
-
-      peer = new Peer();
-      peer.on('open', () => {
-        hostConn = peer.connect('FS-' + code);
-        
-        hostConn.on('open', () => {
-          document.getElementById('player-welcome-msg').innerText = `Connected! Waiting for host to start...`;
-          hostConn.send({ type: 'JOIN_REQ', name: myName });
-        });
-
-        hostConn.on('data', (data) => handleClientIncomingData(data));
-      });
-    }
-
-    window.addEventListener('load', () => {
-      const savedRoom = localStorage.getItem('fs_room');
-      const savedName = localStorage.getItem('fs_name');
-      if (savedRoom && savedName && !isHost) {
-        document.getElementById('join-code').value = savedRoom;
-        document.getElementById('join-name').value = savedName;
-      }
-    });
-
-    function handleClientIncomingData(data) {
-      if (data.type === 'SYNC_PLAYERS') players = data.players;
-      if (data.type === 'PLAY_SOUND') playSound(data.sound, data.isLouder);
-      if (data.type === 'TOGGLE_PAUSE') {
-        isPaused = data.isPaused;
-        pausedByPlayer = data.pausedByPlayer;
-        updatePauseButtonUI();
-      }
-      if (data.type === 'UPDATE_SUBMISSIONS') {
-        players = data.players;
-        updateHostSubmissionTracker();
-      }
-      if (data.type === 'START_Q') {
-        currentQ = data.question;
-        currentQuestionIndex = data.qIndex;
-        players = data.players;
-        setupSubmitLieScreen();
-      }
-      if (data.type === 'START_VOTE') {
-        players = data.players;
-        setupVotingScreen(data.choices);
-      }
-      if (data.type === 'START_REVEAL') {
-        players = data.players;
-        setupRevealScreen();
-      }
-      if (data.type === 'START_SCORES') {
-        players = data.players;
-        setupScoresScreen();
-      }
-      if (data.type === 'FORCE_ADVANCE') {
-        executeTransitionToNextStage();
-      }
-    }
-
-    function startFibbageGame() {
-      playSound('click');
-      broadcastSound('click');
-      if (players.length === 0) addBotPlayer();
-      currentQuestionIndex = 0;
-      nextQuestion();
-    }
-
-    function nextQuestion() {
-      setGlobalControlBarVisible(false);
-      if (currentQuestionIndex >= 6) {
-        processGameOverSequence();
-        return;
-      }
-
-      currentQ = generateUniqueQuestion();
-      players.forEach(p => { p.currentLie = ''; p.currentVote = ''; });
-
-      const botDecoys = [...currentQ.decoys].sort(() => Math.random() - 0.5);
-      players.filter(p => p.name.startsWith('Bot_')).forEach((b, i) => {
-        b.currentLie = botDecoys[i % botDecoys.length];
-      });
-
-      if (currentQuestionIndex === 5) {
-        document.body.classList.add('final-round');
-        startBackgroundMusic('highstakes');
-      } else {
-        document.body.classList.remove('final-round');
-        startBackgroundMusic('playful');
-      }
-
-      broadcastToAll({ type: 'START_Q', question: currentQ, qIndex: currentQuestionIndex, players });
-      setupSubmitLieScreen();
-    }
-
-    function setupSubmitLieScreen() {
-      showScreen('screen-submit-lie');
-      
-      let roundText = "ROUND 1";
-      let multiplierText = "1x Points";
-      if (currentQuestionIndex >= 3 && currentQuestionIndex <= 4) {
-        roundText = "ROUND 2";
-        multiplierText = "2x Points";
-      } else if (currentQuestionIndex === 5) {
-        roundText = "FINAL ROUND";
-        multiplierText = "3x Points";
-      }
-
-      document.getElementById('round-indicator').innerText = `${roundText} (${multiplierText})`;
-      document.getElementById('question-cat').innerText = currentQ.cat;
-      document.getElementById('question-prompt-submit').innerHTML = currentQ.q.replace("____", '<span class="blank-hl">__________</span>');
-      
-      if (isHost) {
-        document.getElementById('lie-input-container').style.display = 'none';
-        document.getElementById('lie-submitted-msg').style.display = 'none';
-        document.getElementById('host-submission-status').style.display = 'block';
-        updateHostSubmissionTracker();
-      } else {
-        document.getElementById('lie-input-container').style.display = 'block';
-        document.getElementById('lie-submitted-msg').style.display = 'none';
-        document.getElementById('host-submission-status').style.display = 'none';
-        document.getElementById('user-lie-input').value = '';
-      }
-
-      startTimer('timer-lie', 45, () => {
-        if (!isHost && document.getElementById('lie-input-container').style.display !== 'none') {
-          assignTimeoutLieForMe();
-          submitLie();
-        } else if (isHost) {
-          fillTimeoutLies();
-          startVotingStage();
-        }
-      });
-    }
-
-    function assignTimeoutLieForMe() {
-      let pool = [...objectPool].sort(() => Math.random() - 0.5);
-      let chosen = pool.find(item => !players.some(p => p.currentLie === item)) || pool[0];
-      document.getElementById('user-lie-input').value = chosen;
-    }
-
-    function fillTimeoutLies() {
-      let availableFallbacks = [...objectPool].sort(() => Math.random() - 0.5);
-      let fbIdx = 0;
-      players.forEach(p => {
-        if (!p.currentLie || p.currentLie === '') {
-          let chosen;
-          while (fbIdx < availableFallbacks.length) {
-            let candidate = availableFallbacks[fbIdx++];
-            if (!players.some(other => other.currentLie === candidate)) {
-              chosen = candidate;
-              break;
+                window.speechSynthesis.speak(utterance);
+            } else {
+                alert("Speech synthesis not supported in this browser.");
             }
-          }
-          p.currentLie = chosen || `fake lie #${Math.floor(Math.random()*100)}`;
-        }
-      });
-    }
-
-    function submitLie() {
-      if (isHost) return;
-      stopTimer();
-      playSound('click');
-      broadcastSound('click');
-      let lieInput = document.getElementById('user-lie-input');
-      let lie = lieInput.value.trim();
-
-      if (!lie) {
-        assignTimeoutLieForMe();
-        lie = lieInput.value.trim();
-      }
-      
-      if (lie.toLowerCase() === currentQ.truth.toLowerCase()) {
-        alert("That's the right answer! Give a convincing lie instead.");
-        lieInput.value = "";
-        return;
-      }
-
-      document.getElementById('lie-input-container').style.display = 'none';
-      document.getElementById('lie-submitted-msg').style.display = 'block';
-
-      hostConn.send({ type: 'SUBMIT_LIE', name: myName, lie: lie });
-    }
-
-    function startVotingStage() {
-      stopTimer();
-      fillTimeoutLies();
-
-      let choices = [];
-      players.forEach(p => {
-        choices.push({ text: p.currentLie, author: p.name });
-      });
-
-      choices.push({ text: currentQ.truth, author: 'TRUTH' });
-
-      let decoyIdx = 0;
-      while (choices.length < 4 && decoyIdx < currentQ.decoys.length) {
-        const decoyText = currentQ.decoys[decoyIdx];
-        if (!choices.some(c => c.text.toLowerCase() === decoyText.toLowerCase())) {
-          choices.push({ text: decoyText, author: 'SYSTEM_DECOY' });
-        }
-        decoyIdx++;
-      }
-
-      choices = choices.sort(() => Math.random() - 0.5);
-
-      players.filter(p => p.name.startsWith('Bot_')).forEach(b => {
-        const valid = choices.filter(c => c.author !== b.name);
-        b.currentVote = valid[Math.floor(Math.random() * valid.length)].text;
-      });
-
-      broadcastToAll({ type: 'START_VOTE', choices, players });
-      setupVotingScreen(choices);
-    }
-
-    function setupVotingScreen(choices) {
-      showScreen('screen-vote');
-      document.getElementById('question-prompt-vote').innerHTML = currentQ.q.replace("____", '<span class="blank-hl">__________</span>');
-      
-      if (isHost) {
-        document.getElementById('choices-container').innerHTML = '<p class="subtitle">Players are voting...</p>';
-        document.getElementById('vote-submitted-msg').style.display = 'none';
-      } else {
-        document.getElementById('choices-container').style.display = 'block';
-        document.getElementById('vote-submitted-msg').style.display = 'none';
-
-        const container = document.getElementById('choices-container');
-        container.innerHTML = choices.map(c => {
-          const isMyLie = (c.author === myName);
-          return `<button class="choice-btn" ${isMyLie ? 'disabled style="opacity:0.4;' : ''}" onclick="submitVote('${c.text.replace(/'/g, "\\'")}')">${c.text} ${isMyLie ? '(Your Lie)' : ''}</button>`;
-        }).join('');
-      }
-
-      startTimer('timer-vote', 45, () => {
-        if (!isHost) {
-          const container = document.getElementById('choices-container');
-          const btn = container.querySelector('.choice-btn:not([disabled])');
-          if (btn && document.getElementById('choices-container').style.display !== 'none') btn.click();
-        } else {
-          players.forEach(p => {
-            if (!p.currentVote) p.currentVote = currentQ.truth;
-          });
-          calculateAndShowReveal();
-        }
-      });
-    }
-
-    function submitVote(choiceText) {
-      if (isHost) return;
-      stopTimer();
-      playSound('click');
-      broadcastSound('click');
-      document.getElementById('choices-container').style.display = 'none';
-      document.getElementById('vote-submitted-msg').style.display = 'block';
-
-      hostConn.send({ type: 'SUBMIT_VOTE', name: myName, vote: choiceText });
-    }
-
-    function calculateAndShowReveal() {
-      stopTimer();
-      stopBackgroundMusic();
-      
-      players.forEach(p => {
-        if (!p.currentVote) p.currentVote = currentQ.truth;
-      });
-
-      let multiplier = 1;
-      if (currentQuestionIndex >= 3 && currentQuestionIndex <= 4) multiplier = 2;
-      if (currentQuestionIndex === 5) multiplier = 3;
-
-      let pickedTruthCount = 0;
-
-      players.forEach(p => {
-        if (p.currentVote === currentQ.truth) {
-          p.score += (1000 * multiplier);
-          pickedTruthCount++;
-        }
-        const fooled = players.filter(other => other.currentVote === p.currentLie && other.name !== p.name);
-        p.score += (fooled.length * 500 * multiplier);
-      });
-
-      if (pickedTruthCount > 0) {
-        playSound('correct');
-        broadcastSound('correct');
-      } else {
-        playSound('fool');
-        broadcastSound('fool');
-      }
-
-      broadcastToAll({ type: 'START_REVEAL', players });
-      setupRevealScreen();
-    }
-
-    function setupRevealScreen() {
-      showScreen('screen-reveal');
-      const container = document.getElementById('reveal-container');
-
-      const truthVoters = players.filter(p => p.currentVote === currentQ.truth).map(p => p.name);
-
-      let multiplier = 1;
-      if (currentQuestionIndex >= 3 && currentQuestionIndex <= 4) multiplier = 2;
-      if (currentQuestionIndex === 5) multiplier = 3;
-
-      let html = `<div class="reveal-card truth">
-        <div class="reveal-answer" style="color:#1dd1a1;">TRUTH: ${currentQ.truth}</div>
-        <div class="reveal-voters">Guessed by: ${truthVoters.join(', ') || 'Nobody'} (+${1000 * multiplier} pts)</div>
-      </div>`;
-
-      players.forEach(p => {
-        const voters = players.filter(v => v.currentVote === p.currentLie).map(v => v.name);
-        html += `<div class="reveal-card">
-          <div class="reveal-answer">"${p.currentLie}"</div>
-          <div class="reveal-author">Lie written by: ${p.name}</div>
-          <div class="reveal-voters">Fooled: ${voters.join(', ') || 'Nobody'} (+${voters.length * 500 * multiplier} pts)</div>
-        </div>`;
-      });
-
-      container.innerHTML = html;
-
-      setGlobalControlBarVisible(true);
-      isPaused = false;
-      updatePauseButtonUI();
-
-      startTimer('timer-reveal', 10, () => {
-        moveToScoresScreen();
-      });
-    }
-
-    function sendContinueSignal() {
-      playSound('click');
-      if (isPaused) {
-        alert("Game is currently paused! Unpause before continuing.");
-        return;
-      }
-
-      if (isHost) {
-        triggerNextStageFromContinue();
-      } else {
-        hostConn.send({ type: 'CONTINUE_REQ', name: myName });
-      }
-    }
-
-    function triggerNextStageFromContinue() {
-      stopTimer();
-      broadcastToAll({ type: 'FORCE_ADVANCE' });
-      executeTransitionToNextStage();
-    }
-
-    function executeTransitionToNextStage() {
-      const activeScreen = document.querySelector('.screen.active').id;
-      if (activeScreen === 'screen-reveal') {
-        moveToScoresScreen();
-      } else if (activeScreen === 'screen-scores') {
-        currentQuestionIndex++;
-        nextQuestion();
-      }
-    }
-
-    function moveToScoresScreen() {
-      playSound('click');
-      broadcastToAll({ type: 'START_SCORES', players });
-      setupScoresScreen();
-    }
-
-    function processGameOverSequence() {
-      const sorted = [...players].sort((a,b) => b.score - a.score);
-      if (sorted.length > 0) {
-        const topScore = sorted[0].score;
-        const winners = sorted.filter(p => p.score === topScore);
-        
-        const currentRosterNames = players.map(p => p.name).sort();
-        const isSameRoster = 
-          previousRosterNames.length === currentRosterNames.length && 
-          previousRosterNames.every((val, idx) => val === currentRosterNames[idx]);
-
-        if (!isSameRoster) {
-          seriesWinTally = {};
-          previousRosterNames = [...currentRosterNames];
         }
 
-        winners.forEach(w => {
-          seriesWinTally[w.name] = (seriesWinTally[w.name] || 0) + 1;
-        });
-      }
-      setupScoresScreen();
-    }
-
-    function setupScoresScreen() {
-      showScreen('screen-scores');
-      const container = document.getElementById('leaderboard-container');
-      const sorted = [...players].sort((a,b) => b.score - a.score);
-
-      const isGameOver = (currentQuestionIndex >= 6);
-
-      container.innerHTML = sorted.map((p, i) => `
-        <div class="reveal-card" style="display:flex; justify-content:space-between; align-items:center;">
-          <div><strong>#${i+1} ${p.name}</strong></div>
-          <div style="font-size:1.2rem; font-weight:800; color:#feca57;">${p.score} pts</div>
-        </div>
-      `).join('');
-
-      const tallyBox = document.getElementById('win-tally-box');
-      const tallyList = document.getElementById('win-tally-list');
-      if (Object.keys(seriesWinTally).length > 0) {
-        tallyBox.style.display = 'block';
-        tallyList.innerHTML = Object.entries(seriesWinTally)
-          .sort((a, b) => b[1] - a[1])
-          .map(([name, wins]) => `<div style="display:flex; justify-content:space-between;"><span>${name}:</span><span style="color:#feca57; font-weight:700;">${wins} win(s)</span></div>`)
-          .join('');
-      } else {
-        tallyBox.style.display = 'none';
-      }
-
-      const continueContainer = document.getElementById('score-continue-container');
-      const endOptions = document.getElementById('host-end-options');
-
-      if (isGameOver) {
-        setGlobalControlBarVisible(false);
-        continueContainer.style.display = 'none';
-        endOptions.style.display = isHost ? 'flex' : 'none';
-      } else {
-        endOptions.style.display = 'none';
-        continueContainer.style.display = 'block';
-        setGlobalControlBarVisible(true);
-        isPaused = false;
-        updatePauseButtonUI();
-
-        startTimer('timer-score', 10, () => {
-          currentQuestionIndex++;
-          nextQuestion();
-        });
-      }
-    }
-
-    function restartSamePlayers() {
-      playSound('click');
-      players.forEach(p => p.score = 0);
-      currentQuestionIndex = 0;
-      recentSignaturesHistory = [];
-      document.getElementById('host-end-options').style.display = 'none';
-      nextQuestion();
-    }
-
-    function restartNewPlayers() {
-      playSound('click');
-      location.reload();
-    }
-  </script>
+        // Load initial question on page load
+        window.onload = nextRound;
+    </script>
 </body>
 </html>
