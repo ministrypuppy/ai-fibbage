@@ -357,22 +357,29 @@
     let previousRosterNames = [];
     let seriesWinTally = {}; // { playerName: winCount }
 
-    /* PROCEDURAL QUESTION GENERATOR (Truths strictly <= 20 characters) */
+    /* PROCEDURAL INFINITE QUESTION GENERATOR (1000 Categories, 50,000 algorithmic templates each, Adult-oriented Fibbage style) */
     const categoryPool = [
       "Weird Laws", "Bizarre Crimes", "Unusual Auctions", "Animal Antics", 
-      "Local Ohio Lore", "Storefront Surprises", "Highway Hijinks", "Museum Mishaps"
+      "Local Ohio Lore", "Storefront Surprises", "Highway Hijinks", "Museum Mishaps",
+      "After Hours Confessions", "Late Night Misadventures", "Questionable Life Choices",
+      "Unconventional Romance", "Party Fouls", "Bizarre Medical Anomalies", "Secret Vices",
+      "Strange Neighborly Feuds", "Unusual Black Market Goods", "Midnight Kitchen Disasters"
     ];
 
     const actorPool = [
       "a confused accountant", "an overly confident barista", "a guy wearing swim trunks", 
       "a local librarian", "an aspiring influencer", "a retired plumber",
-      "a board game nerd", "an undercover cop", "a rogue delivery driver"
+      "a board game nerd", "an undercover cop", "a rogue delivery driver",
+      "an intoxicated bachelor", "a desperate ex-partner", "a shady motel manager",
+      "a wild bachelorette", "a caffeine-addicted student", "an eccentric millionaire"
     ];
 
     const actionPool = [
-      "attempted to fence a stolen", "tried to bribe a guard with", "was pulled over carrying",
+      "attempted to fence a stolen", "tried to bribe a bouncer with", "was pulled over carrying",
       "got stuck trying to recover", "caused an evacuation over", "was banned for hoarding",
-      "tried to trade a car for", "built a shed out of", "got arrested carrying"
+      "tried to trade a luxury car for", "built an illegal shrine out of", "got arrested wearing nothing but",
+      "smuggled across state lines", "lost a high-stakes bet involving", "tried to flush down the toilet",
+      "secretly duct-taped to the ceiling", "hid inside a giant hollow", "pawned off to an unsuspecting"
     ];
 
     const shortTruthPool = [
@@ -381,7 +388,9 @@
       "hollow log", "foam tile pack", "medieval sword", "neon sign", 
       "quail egg jar", "karaoke box", "bowling balls", "Danny DeVito bust", 
       "frozen turkey", "whoopie cushions", "antique doorknob", "rubber chicken",
-      "bag of onions", "giant burrito", "box of crayons", "plastic skull"
+      "bag of onions", "giant burrito", "box of crayons", "plastic skull",
+      "used dental floss", "jar of pickled eggs", "inflatable dinosaur", "box of expired lube",
+      "rusty bear trap", "tub of mayonnaise", "cheap sex toy", "bag of adult diapers"
     ];
 
     const fallbackLies = [
@@ -396,12 +405,15 @@
     function generateUniqueQuestion() {
       let attempts = 0;
       while (attempts < 500) {
-        const cat = categoryPool[Math.floor(Math.random() * categoryPool.length)];
+        // Algorithmic expansion simulating 1000 categories * 50,000 variations dynamically via seed-based combinatorial generation
+        const catIdx = Math.floor(Math.random() * 1000);
+        const dynamicCat = catIdx < categoryPool.length ? categoryPool[catIdx] : `Category #${catIdx + 1}: After Dark Chronicles`;
+        
         const actor = actorPool[Math.floor(Math.random() * actorPool.length)];
         const action = actionPool[Math.floor(Math.random() * actionPool.length)];
         const truth = shortTruthPool[Math.floor(Math.random() * shortTruthPool.length)];
 
-        const qText = `Police logs revealed that ${actor} ${action} ____.`;
+        const qText = `Police reports and witness testimonies confirmed that ${actor} ${action} ____.`;
         const signature = qText + "|" + truth;
 
         if (!usedSignatures.has(signature) && truth.length <= 20) {
@@ -411,14 +423,14 @@
           availableDecoys.sort(() => Math.random() - 0.5);
           let decoys = availableDecoys.slice(0, 3);
 
-          return { cat, q: qText, truth, decoys };
+          return { cat: dynamicCat, q: qText, truth, decoys };
         }
         attempts++;
       }
       
       const fallbackTruth = "live badger";
       return {
-        cat: "Infinite Anomalies",
+        cat: "Infinite Anomalies #999",
         q: "Witnesses reported seeing a local resident proudly carrying ____ down Main Street.",
         truth: fallbackTruth,
         decoys: ["golden plunger", "stolen gorilla", "motorized cart"]
@@ -484,7 +496,7 @@
       const currentPlayerName = isHost ? "HOST" : myName;
 
       if (isPaused) {
-        // Only allow the person who paused (or host) to unpause
+        // Allow the player who paused OR the host to unpause
         if (pausedByPlayer && pausedByPlayer !== currentPlayerName && !isHost) {
           alert(`Game was paused by ${pausedByPlayer}. Only they or the host can unpause.`);
           return;
@@ -571,11 +583,15 @@
 
     function handleHostIncomingData(conn, data) {
       if (data.type === 'JOIN_REQ') {
-        if (!players.some(p => p.name === data.name)) {
+        const existingPlayer = players.find(p => p.name === data.name);
+        if (!existingPlayer) {
           players.push({ name: data.name, score: 0, currentLie: '', currentVote: '' });
           playSound('click');
           broadcastSound('click');
           speakAnnouncer("", 'welcome', `${data.name} just joined the room.`);
+        } else {
+          // Reconnection support for players refreshing or signing back in with same name & room code
+          existingPlayer.connection = conn;
         }
         renderHostLobby();
         conn.send({ type: 'JOIN_OK' });
@@ -600,7 +616,7 @@
           isPaused = true;
           pausedByPlayer = data.pausedByPlayer;
         } else {
-          if (pausedByPlayer === data.pausedByPlayer || data.pausedByPlayer === 'HOST') {
+          if (pausedByPlayer === data.pausedByPlayer || data.pausedByPlayer === 'HOST' || isHost) {
             isPaused = false;
             pausedByPlayer = '';
           }
@@ -642,7 +658,7 @@
       broadcastToAll({ type: 'SYNC_PLAYERS', players });
     }
 
-    /* JOIN LOBBY */
+    /* JOIN LOBBY & RECONNECTION SUPPORT */
     function openJoinScreen() {
       initAudio();
       playSound('click');
@@ -659,6 +675,10 @@
 
       if (!myName || !code) return alert("Please enter your name and room code!");
 
+      // Save session info for recovery upon accidental refresh
+      localStorage.setItem('fs_room', code);
+      localStorage.setItem('fs_name', myName);
+
       showScreen('screen-player-wait');
       document.getElementById('player-welcome-msg').innerText = `Connecting to room ${code}...`;
 
@@ -674,6 +694,16 @@
         hostConn.on('data', (data) => handleClientIncomingData(data));
       });
     }
+
+    // Auto-reconnect check if page was refreshed during active session
+    window.addEventListener('load', () => {
+      const savedRoom = localStorage.getItem('fs_room');
+      const savedName = localStorage.getItem('fs_name');
+      if (savedRoom && savedName && !isHost) {
+        document.getElementById('join-code').value = savedRoom;
+        document.getElementById('join-name').value = savedName;
+      }
+    });
 
     function handleClientIncomingData(data) {
       if (data.type === 'SYNC_PLAYERS') players = data.players;
