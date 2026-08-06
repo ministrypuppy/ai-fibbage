@@ -127,11 +127,24 @@
         const voices = window.speechSynthesis.getVoices();
         if (!voices || voices.length === 0) return;
         
-        const preferred = voices.find(v => 
+        // Target English male voices that sound natural or standard across browsers
+        const preferredMale = voices.find(v => 
           v.lang.startsWith('en') && 
-          (v.name.includes('Natural') || v.name.includes('Google') || v.name.includes('Samantha') || v.name.includes('Daniel') || v.name.includes('Alex'))
+          (
+            v.name.includes('Guy') || 
+            v.name.includes('David') || 
+            v.name.includes('George') || 
+            v.name.includes('Daniel') || 
+            v.name.includes('Alex') || 
+            v.name.includes('Google UK English Male') ||
+            v.name.includes('Google US English Male') ||
+            v.name.toLowerCase().includes('male')
+          )
         );
-        hostVoice = preferred || voices.find(v => v.lang.startsWith('en')) || voices[0];
+
+        // Fallback to any natural/English voice if specific male voice isn't present
+        const fallback = voices.find(v => v.lang.startsWith('en') && (v.name.includes('Natural') || v.name.includes('Google')));
+        hostVoice = preferredMale || fallback || voices.find(v => v.lang.startsWith('en')) || voices[0];
       };
 
       setVoice();
@@ -146,8 +159,8 @@
       window.speechSynthesis.cancel();
 
       const utterance = new SpeechSynthesisUtterance(text);
-      utterance.pitch = 1.15;
-      utterance.rate = 1.08;
+      utterance.pitch = 0.95; // Slightly lower pitch for a natural male tone
+      utterance.rate = 1.05;  // Upbeat, engaging pace
 
       if (hostVoice) utterance.voice = hostVoice;
 
