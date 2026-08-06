@@ -71,7 +71,6 @@
 
     <div id="host-gameplay" class="hidden">
       <div id="round-badge" class="badge">Round 1/6 (1x Points)</div>
-      <div id="cookie-subtitle" style="font-style: italic; color: #ff0055; margin: 10px 0; font-size: 1.25rem; font-weight: bold; min-height: 1.5em;"></div>
       <div class="timer-bar-container"><div id="host-timer-bar" class="timer-bar"></div></div>
       <h2 id="host-question" style="color: #00e5ff; margin-bottom: 20px;"></h2>
       <p id="host-status" style="font-size: 1.2rem;"></p>
@@ -119,6 +118,27 @@
     let currentPhase = 'LANDING';
     let currentUrgentState = false;
     let activeRoundNumber = 1;
+    let hostVoice = null;
+
+    function initVoice() {
+      if (!('speechSynthesis' in window)) return;
+      
+      const setVoice = () => {
+        const voices = window.speechSynthesis.getVoices();
+        if (!voices || voices.length === 0) return;
+        
+        const preferred = voices.find(v => 
+          v.lang.startsWith('en') && 
+          (v.name.includes('Natural') || v.name.includes('Google') || v.name.includes('Samantha') || v.name.includes('Daniel') || v.name.includes('Alex'))
+        );
+        hostVoice = preferred || voices.find(v => v.lang.startsWith('en')) || voices[0];
+      };
+
+      setVoice();
+      if (window.speechSynthesis.onvoiceschanged !== undefined) {
+        window.speechSynthesis.onvoiceschanged = setVoice;
+      }
+    }
 
     function cookieSpeak(text) {
       if (isMuted || !isHost || !('speechSynthesis' in window)) return;
@@ -126,18 +146,17 @@
       window.speechSynthesis.cancel();
 
       const utterance = new SpeechSynthesisUtterance(text);
-      utterance.pitch = 1.2;
-      utterance.rate = 1.05;
+      utterance.pitch = 1.15;
+      utterance.rate = 1.08;
 
-      const voices = window.speechSynthesis.getVoices();
-      const preferredVoice = voices.find(v => v.lang.startsWith('en') && (v.name.includes('Natural') || v.name.includes('Google') || v.name.includes('Samantha')));
-      if (preferredVoice) utterance.voice = preferredVoice;
+      if (hostVoice) utterance.voice = hostVoice;
 
       window.speechSynthesis.speak(utterance);
     }
 
     function userInteracted() {
       initAudio();
+      initVoice();
       if ((currentPhase === 'LANDING' || currentPhase === 'GAMEOVER') && !musicInterval && !isMuted) {
         playChillTheme();
       }
@@ -267,7 +286,7 @@
 
       if (isMuted) {
         stopMusic();
-        window.speechSynthesis.cancel();
+        if ('speechSynthesis' in window) window.speechSynthesis.cancel();
       } else {
         if (currentPhase === 'LANDING' || currentPhase === 'GAMEOVER') playChillTheme();
         else if (currentPhase === 'LOBBY' && isHost) playLobbyMusic();
@@ -287,6 +306,7 @@
       document.getElementById('view-host').classList.remove('hidden');
       isHost = true;
       initAudio();
+      initVoice();
       socket.emit('createRoom');
       playLobbyMusic();
     }
@@ -352,10 +372,7 @@
       const roundLabel = currentRound === 6 ? 'FINAL FIBBAGE (3x Points!)' : `Round ${currentRound}/6 (${multiplier}x Points)`;
 
       if (isHost) {
-        if (cookieLine) {
-          document.getElementById('cookie-subtitle').innerText = `Cookie: "${cookieLine}"`;
-          cookieSpeak(cookieLine);
-        }
+        if (cookieLine) cookieSpeak(cookieLine);
         playThinkingMusic(false, currentRound === 6);
         document.getElementById('host-lobby').classList.add('hidden');
         document.getElementById('host-gameplay').classList.remove('hidden');
@@ -425,10 +442,7 @@
             return `<button class="option-btn" onclick="submitVote(${actualIdx})">${opt.text}</button>`;
           }).join('');
       } else {
-        if (cookieLine) {
-          document.getElementById('cookie-subtitle').innerText = `Cookie: "${cookieLine}"`;
-          cookieSpeak(cookieLine);
-        }
+        if (cookieLine) cookieSpeak(cookieLine);
         playThinkingMusic(false, activeRoundNumber === 6);
         playTickSound();
         document.getElementById('host-status').innerText = 'Voting in progress on phones...';
@@ -449,10 +463,7 @@
         stopMusic();
         playRoundRevealSound(currentRound);
 
-        if (cookieLine) {
-          document.getElementById('cookie-subtitle').innerText = `Cookie: "${cookieLine}"`;
-          cookieSpeak(cookieLine);
-        }
+        if (cookieLine) cookieSpeak(cookieLine);
 
         if (isGameOver) {
           currentPhase = 'GAMEOVER';
