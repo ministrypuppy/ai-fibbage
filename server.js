@@ -1,5 +1,5 @@
 const express = require('express');
-const http = require('http');
+const http = http = require('http');
 const { Server } = require('socket.io');
 const path = require('path');
 
@@ -28,7 +28,7 @@ const fallbackLies = [
   "Faking a twin to skip work"
 ];
 
-// Pure Fibbage-style fill-in-the-blank trivia
+// Massive Expanded Fibbage-Style Question Bank (Adult-oriented, non-raunchy, answers <= 20 chars)
 const fibbageQuestionBank = [
   {
     question: "In 2012, a man in New Zealand was arrested after calling emergency services to complain about ____.",
@@ -42,7 +42,7 @@ const fibbageQuestionBank = [
   },
   {
     question: "In 2017, a UK man legally changed his name to ____ after losing a drunk bet.",
-    answer: "Bacon Double Cheeseburger",
+    answer: "Bacon Cheeseburger",
     houseLies: ["Captain Underpants", "Lord Voldemort", "Sir Mix-A-Lot"]
   },
   {
@@ -58,7 +58,7 @@ const fibbageQuestionBank = [
   {
     question: "In 2013, a man held up a bank in Chicago using a ____ as a weapon.",
     answer: "electric toothbrush",
-    houseLies: ["frozen banana", "dildo", "guppy in a bag"]
+    houseLies: ["frozen banana", "rubber duck", "guppy in a bag"]
   },
   {
     question: "In Switzerland, it is illegal to own only one ____ because they get lonely.",
@@ -78,7 +78,7 @@ const fibbageQuestionBank = [
   {
     question: "A man in Florida was arrested after trying to pay for his McDonald's order with ____.",
     answer: "a bag of weed",
-    houseLies: ["a live alligator", "a stolen credit card statement", "Monopoly money"]
+    houseLies: ["a live alligator", "a credit card statement", "Monopoly money"]
   },
   {
     question: "In 2011, a man was banned from an all-you-can-eat buffet after eating ____ plates of food.",
@@ -104,6 +104,57 @@ const fibbageQuestionBank = [
     question: "In 2007, a man accidentally traded a 3-carat diamond ring for a ____.",
     answer: "pepperoni pizza",
     houseLies: ["used toaster", "pack of cigarettes", "lottery ticket"]
+  },
+  // --- Expanded Infinite-Style Additions ---
+  {
+    question: "A disgruntled office worker filled the company ventilation system with ____.",
+    answer: "Liquid ass",
+    houseLies: ["Glade spray", "fish oil", "stinky cheese"]
+  },
+  {
+    question: "In 2012, a man was caught trying to smuggle 18 rare iguanas through customs inside his ____.",
+    answer: "compression shorts",
+    houseLies: ["cargo pockets", "winter coat", "bowling bag"]
+  },
+  {
+    question: "What unexpected household object caused a complete evacuation at a German airport?",
+    answer: "A frozen turkey",
+    houseLies: ["An alarm clock", "A pressure cooker", "A blender"]
+  },
+  {
+    question: "A Florida man attempted to rob a convenience store wielding a live ____ as a weapon.",
+    answer: "Alligator",
+    houseLies: ["Rattlesnake", "Opossum", "Snapping turtle"]
+  },
+  {
+    question: "In 1995, a clever bank robber used ____ to completely blind the security cameras.",
+    answer: "lemon juice",
+    houseLies: ["hairspray", "Vaseline", "silly string"]
+  },
+  {
+    question: "A bizarre 18th-century medical trend involved blowing tobacco smoke up patients' ____.",
+    answer: "rectums",
+    houseLies: ["noses", "ears", "mouths"]
+  },
+  {
+    question: "What unusual material did prison inmates use to successfully scale a 20-foot facility wall?",
+    answer: "Dental floss",
+    houseLies: ["Bed sheets", "Shoelaces", "Towel strips"]
+  },
+  {
+    question: "A museum in Iceland famously houses a massive collection of preserved specimens from various ____.",
+    answer: "mammals",
+    houseLies: ["deep sea fish", "reptiles", "insects"]
+  },
+  {
+    question: "In 2004, a man drove a heavily modified armored bulldozer through a Colorado town to destroy ____.",
+    answer: "Town hall",
+    houseLies: ["The bank", "A rival business", "Police headquarters"]
+  },
+  {
+    question: "A burglar fell asleep on his victim's couch and was woken up by police holding a bag of ____.",
+    answer: "Doritos",
+    houseLies: ["Pretzels", "Gummies", "Popcorn"]
   }
 ];
 
@@ -138,10 +189,8 @@ function generateRoomCode() {
 }
 
 function getNextQuestion(room) {
-  // Filter out questions already used in this room session
   const available = fibbageQuestionBank.filter((_, idx) => !room.usedQuestions.includes(idx));
   
-  // Reset index list if all questions were used
   if (available.length === 0) {
     room.usedQuestions = [];
     return fibbageQuestionBank[Math.floor(Math.random() * fibbageQuestionBank.length)];
