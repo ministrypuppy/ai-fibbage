@@ -140,24 +140,26 @@
 
   <!-- STAGE 3: REVEAL -->
   <div id="screen-reveal" class="screen">
+    <div class="timer-badge" id="timer-reveal">10</div>
     <h2>The Truth Unveiled</h2>
     <div id="reveal-container"></div>
     <!-- CONTINUE BUTTON FOR REVEAL -->
     <div id="reveal-continue-container" style="margin-top: 20px;">
       <button id="reveal-continue-btn" class="btn btn-host" onclick="sendContinueSignal()">Continue</button>
-      <p class="subtitle" id="reveal-continue-status" style="margin-top: 8px; font-size:0.85rem;">Waiting for players to continue... (0/0)</p>
+      <p class="subtitle" id="reveal-continue-status" style="margin-top: 8px; font-size:0.85rem;">Click to skip timer</p>
     </div>
   </div>
 
   <!-- STAGE 4: SCORES -->
   <div id="screen-scores" class="screen">
+    <div class="timer-badge" id="timer-score" style="display:none;">10</div>
     <h2>Leaderboard</h2>
     <div id="leaderboard-container" style="margin:20px 0;"></div>
     
     <!-- CONTINUE BUTTON FOR SCORES -->
     <div id="score-continue-container" style="margin-top: 20px;">
       <button id="score-continue-btn" class="btn btn-host" onclick="sendContinueSignal()">Continue to Next Question</button>
-      <p class="subtitle" id="score-continue-status" style="margin-top: 8px; font-size:0.85rem;">Waiting for players to continue... (0/0)</p>
+      <p class="subtitle" id="score-continue-status" style="margin-top: 8px; font-size:0.85rem;">Click to skip timer</p>
     </div>
 
     <!-- WIN TALLY DISPLAY (Persistent Roster Tally) -->
@@ -201,7 +203,6 @@
       } else if (type === 'tick') {
         osc.type = 'triangle';
         osc.frequency.setValueAtTime(1000, now);
-        // Louder ticking sound for the final 10 seconds
         let tickGain = isLouder ? 0.18 : 0.05;
         gain.gain.setValueAtTime(tickGain, now);
         gain.gain.exponentialRampToValueAtTime(0.001, now + 0.05);
@@ -349,8 +350,8 @@
     let hostConn = null;
     let clientConns = [];
 
-    // CONTINUE GATHERING STATE
-    let continuePlayers = new Set();
+    // PAUSE INITIATOR TRACKING
+    let pausedByPlayer = '';
 
     // SERIES WIN TALLY TRACKING
     let previousRosterNames = [];
@@ -439,31 +440,36 @@
       }
     }
 
-    function startTimer(elementId, onComplete) {
+    function startTimer(elementId, seconds, onComplete) {
       clearInterval(timerInterval);
-      timeLeft = 45;
+      timeLeft = seconds;
       isPaused = false;
+      pausedByPlayer = '';
       updatePauseButtonUI();
       const el = document.getElementById(elementId);
-      el.classList.remove('warning');
-      el.innerText = timeLeft;
+      if (el) {
+        el.style.display = 'inline-block';
+        el.classList.remove('warning');
+        el.innerText = timeLeft;
+      }
       document.body.classList.remove('edge-flash');
 
       timerInterval = setInterval(() => {
         if (isPaused) return;
         timeLeft--;
-        el.innerText = timeLeft;
+        if (el) el.innerText = timeLeft;
         
-        if (timeLeft <= 10) {
-          el.classList.add('warning');
-          document.body.classList.add('edge-flash'); // Light red flashing animation on screen edges
-          playSound('tick', true); // Louder ticking in final 10 seconds
+        if (seconds === 45 && timeLeft <= 10) {
+          if (el) el.classList.add('warning');
+          document.body.classList.add('edge-flash');
+          playSound('tick', true);
           broadcastSound('tick', true);
         }
 
         if (timeLeft <= 0) {
           clearInterval(timerInterval);
           document.body.classList.remove('edge-flash');
+          if (el) el.style.display = 'none';
           if (onComplete) onComplete();
         }
       }, 1000);
@@ -475,21 +481,42 @@
     }
 
     function togglePauseGame() {
-      isPaused = !isPaused;
+      const currentPlayerName = isHost ? "HOST" : myName;
+
+      if (isPaused) {
+        // Only allow the person who paused (or host) to unpause
+        if (pausedByPlayer && pausedByPlayer !== currentPlayerName && !isHost) {
+          alert(`Game was paused by ${pausedByPlayer}. Only they or the host can unpause.`);
+          return;
+        }
+        isPaused = false;
+        pausedByPlayer = '';
+      } else {
+        isPaused = true;
+        pausedByPlayer = currentPlayerName;
+      }
+
       updatePauseButtonUI();
       
       if (isHost) {
-        broadcastToAll({ type: 'TOGGLE_PAUSE', isPaused });
+        broadcastToAll({ type: 'TOGGLE_PAUSE', isPaused, pausedByPlayer });
       } else if (hostConn && hostConn.open) {
-        hostConn.send({ type: 'REQUEST_PAUSE', isPaused });
+        hostConn.send({ type: 'REQUEST_PAUSE', isPaused, pausedByPlayer });
       }
     }
 
     function updatePauseButtonUI() {
       const btn = document.getElementById('pause-game-btn');
+      const currentPlayerName = isHost ? "HOST" : myName;
+      
       if (isPaused) {
-        btn.innerText = "Resume Game";
-        btn.style.background = "linear-gradient(135deg, #1dd1a1, #48dbfb)";
+        if (pausedByPlayer && pausedByPlayer !== currentPlayerName && !isHost) {
+          btn.innerText = `Paused by ${pausedByPlayer}`;
+          btn.style.background = "#718093";
+        } else {
+          btn.innerText = "Resume Game";
+          btn.style.background = "linear-gradient(135deg, #1dd1a1, #48dbfb)";
+        }
       } else {
         btn.innerText = "Pause Game";
         btn.style.background = "linear-gradient(135deg, #ff4757, #ffa502)";
@@ -569,12 +596,22 @@
         if (players.every(p => p.currentVote !== '')) calculateAndShowReveal();
       }
       if (data.type === 'REQUEST_PAUSE') {
-        isPaused = data.isPaused;
+        if (data.isPaused) {
+          isPaused = true;
+          pausedByPlayer = data.pausedByPlayer;
+        } else {
+          if (pausedByPlayer === data.pausedByPlayer || data.pausedByPlayer === 'HOST') {
+            isPaused = false;
+            pausedByPlayer = '';
+          }
+        }
         updatePauseButtonUI();
-        broadcastToAll({ type: 'TOGGLE_PAUSE', isPaused });
+        broadcastToAll({ type: 'TOGGLE_PAUSE', isPaused, pausedByPlayer });
       }
       if (data.type === 'CONTINUE_REQ') {
-        handleContinueVote(data.name);
+        if (!isPaused) {
+          triggerNextStageFromContinue();
+        }
       }
     }
 
@@ -643,6 +680,7 @@
       if (data.type === 'PLAY_SOUND') playSound(data.sound, data.isLouder);
       if (data.type === 'TOGGLE_PAUSE') {
         isPaused = data.isPaused;
+        pausedByPlayer = data.pausedByPlayer;
         updatePauseButtonUI();
       }
       if (data.type === 'UPDATE_SUBMISSIONS') {
@@ -667,8 +705,8 @@
         players = data.players;
         setupScoresScreen();
       }
-      if (data.type === 'UPDATE_CONTINUE_COUNT') {
-        updateContinueUI(data.count, data.total);
+      if (data.type === 'FORCE_ADVANCE') {
+        executeTransitionToNextStage();
       }
     }
 
@@ -743,7 +781,7 @@
         speakAnnouncer(currentQ.cat, 'category');
       }
 
-      startTimer('timer-lie', () => {
+      startTimer('timer-lie', 45, () => {
         if (!isHost && document.getElementById('lie-input-container').style.display !== 'none') {
           assignTimeoutLieForMe();
           submitLie();
@@ -848,11 +886,11 @@
         const container = document.getElementById('choices-container');
         container.innerHTML = choices.map(c => {
           const isMyLie = (c.author === myName);
-          return `<button class="choice-btn" ${isMyLie ? 'disabled style="opacity:0.4;"' : ''} onclick="submitVote('${c.text.replace(/'/g, "\\'")}')">${c.text} ${isMyLie ? '(Your Lie)' : ''}</button>`;
+          return `<button class="choice-btn" ${isMyLie ? 'disabled style="opacity:0.4;' : ''}" onclick="submitVote('${c.text.replace(/'/g, "\\'")}')">${c.text} ${isMyLie ? '(Your Lie)' : ''}</button>`;
         }).join('');
       }
 
-      startTimer('timer-vote', () => {
+      startTimer('timer-vote', 45, () => {
         if (!isHost) {
           const container = document.getElementById('choices-container');
           const btn = container.querySelector('.choice-btn:not([disabled])');
@@ -910,11 +948,6 @@
         speakAnnouncer("", 'truth_fail', currentQ.truth);
       }
 
-      // Reset continue voting tally for Reveal stage
-      continuePlayers.clear();
-      // Automatically vote for bots so they don't block progress
-      players.filter(p => p.name.startsWith('Bot_')).forEach(b => continuePlayers.add(b.name));
-
       broadcastToAll({ type: 'START_REVEAL', players });
       setupRevealScreen();
     }
@@ -945,72 +978,59 @@
 
       container.innerHTML = html;
 
-      // Enable the global control bar / pause bar between questions
+      // Enable control bar / pause bar
       setGlobalControlBarVisible(true);
       isPaused = false;
       updatePauseButtonUI();
 
-      // Reset Continue button state
-      const continueBtn = document.getElementById('reveal-continue-btn');
-      continueBtn.disabled = false;
-      continueBtn.innerText = "Continue";
-      updateContinueUI(continuePlayers.size, players.length);
+      // Start 10-second interim countdown timer, skip on Continue
+      startTimer('timer-reveal', 10, () => {
+        moveToScoresScreen();
+      });
     }
 
     function sendContinueSignal() {
       playSound('click');
-      const btn = isHost ? document.getElementById('reveal-continue-btn') : document.getElementById('reveal-continue-btn'); // handles active screen button
-      // Disable local button to prevent double-clicking
+      if (isPaused) {
+        alert("Game is currently paused! Unpause before continuing.");
+        return;
+      }
+
       if (isHost) {
-        handleContinueVote(myName);
+        triggerNextStageFromContinue();
       } else {
         hostConn.send({ type: 'CONTINUE_REQ', name: myName });
       }
     }
 
-    function handleContinueVote(playerName) {
-      continuePlayers.add(playerName);
-      updateContinueUI(continuePlayers.size, players.length);
-      broadcastToAll({ type: 'UPDATE_CONTINUE_COUNT', count: continuePlayers.size, total: players.length });
-
-      if (continuePlayers.size >= players.length) {
-        // All players ready, advance state!
-        const activeScreen = document.querySelector('.screen.active').id;
-        if (activeScreen === 'screen-reveal') {
-          moveToScoresScreen();
-        } else if (activeScreen === 'screen-scores') {
-          currentQuestionIndex++;
-          nextQuestion();
-        }
-      }
+    function triggerNextStageFromContinue() {
+      stopTimer();
+      broadcastToAll({ type: 'FORCE_ADVANCE' });
+      executeTransitionToNextStage();
     }
 
-    function updateContinueUI(count, total) {
-      const statusText = `Waiting for players to continue... (${count}/${total})`;
-      const revStatus = document.getElementById('reveal-continue-status');
-      const scoreStatus = document.getElementById('score-continue-status');
-      if (revStatus) revStatus.innerText = statusText;
-      if (scoreStatus) scoreStatus.innerText = statusText;
+    function executeTransitionToNextStage() {
+      const activeScreen = document.querySelector('.screen.active').id;
+      if (activeScreen === 'screen-reveal') {
+        moveToScoresScreen();
+      } else if (activeScreen === 'screen-scores') {
+        currentQuestionIndex++;
+        nextQuestion();
+      }
     }
 
     function moveToScoresScreen() {
       playSound('click');
-      // Reset continue tally for Scoreboard stage
-      continuePlayers.clear();
-      players.filter(p => p.name.startsWith('Bot_')).forEach(b => continuePlayers.add(b.name));
-
       broadcastToAll({ type: 'START_SCORES', players });
       setupScoresScreen();
     }
 
     function processGameOverSequence() {
-      // Determine winner(s) and update series win tally
       const sorted = [...players].sort((a,b) => b.score - a.score);
       if (sorted.length > 0) {
         const topScore = sorted[0].score;
         const winners = sorted.filter(p => p.score === topScore);
         
-        // Check if roster matches previous game roster
         const currentRosterNames = players.map(p => p.name).sort();
         const isSameRoster = 
           previousRosterNames.length === currentRosterNames.length && 
@@ -1048,7 +1068,6 @@
         </div>
       `).join('');
 
-      // Render Series Win Tally if applicable
       const tallyBox = document.getElementById('win-tally-box');
       const tallyList = document.getElementById('win-tally-list');
       if (Object.keys(seriesWinTally).length > 0) {
@@ -1065,7 +1084,7 @@
       const endOptions = document.getElementById('host-end-options');
 
       if (isGameOver) {
-        setGlobalControlBarVisible(false); // Hide control bar on final game over
+        setGlobalControlBarVisible(false);
         continueContainer.style.display = 'none';
         endOptions.style.display = isHost ? 'flex' : 'none';
       } else {
@@ -1074,7 +1093,12 @@
         setGlobalControlBarVisible(true);
         isPaused = false;
         updatePauseButtonUI();
-        updateContinueUI(continuePlayers.size, players.length);
+
+        // Start 10-second interim countdown timer, skip on Continue
+        startTimer('timer-score', 10, () => {
+          currentQuestionIndex++;
+          nextQuestion();
+        });
       }
     }
 
