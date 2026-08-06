@@ -1,5 +1,5 @@
 const express = require('express');
-const http = http = require('http');
+const http = require('http');
 const { Server } = require('socket.io');
 const path = require('path');
 
@@ -105,7 +105,6 @@ const fibbageQuestionBank = [
     answer: "pepperoni pizza",
     houseLies: ["used toaster", "pack of cigarettes", "lottery ticket"]
   },
-  // --- Expanded Infinite-Style Additions ---
   {
     question: "A disgruntled office worker filled the company ventilation system with ____.",
     answer: "Liquid ass",
