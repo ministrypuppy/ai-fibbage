@@ -3,11 +3,11 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Bluff & Blank - Fibbage Edition</title>
+  <title>Fool School</title>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
     body { background: linear-gradient(135deg, #181824, #28283d); color: #fff; min-height: 100vh; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 20px; }
-    .screen { display: none; background: rgba(255, 255, 255, 0.05); backdrop-filter: blur(12px); border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 20px; padding: 30px; width: 100%; max-width: 520px; text-align: center; box-shadow: 0 15px 35px rgba(0,0,0,0.5); animation: fadeIn 0.3s ease-out; }
+    .screen { display: none; background: rgba(255, 255, 255, 0.05); backdrop-filter: blur(12px); border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 20px; padding: 30px; width: 100%; max-width: 520px; text-align: center; box-shadow: 0 15px 35px rgba(0,0,0,0.5); animation: fadeIn 0.3s ease-out; position: relative; }
     .screen.active { display: block; }
     h1 { font-size: 2.5rem; font-weight: 800; background: linear-gradient(45deg, #ff6b6b, #feca57, #48dbfb, #ff9ff3); -webkit-background-clip: text; -webkit-text-fill-color: transparent; margin-bottom: 5px; }
     .subtitle { color: #a0a0c0; font-size: 0.95rem; margin-bottom: 25px; }
@@ -29,6 +29,15 @@
     .reveal-author { font-size: 0.85rem; color: #feca57; }
     .reveal-voters { font-size: 0.85rem; color: #1dd1a1; margin-top: 4px; }
     .truth { border: 2px solid #1dd1a1; }
+    
+    /* 45 SECOND TIMER UI & FLASHING RED ANIMATION */
+    .timer-badge { font-size: 1.5rem; font-weight: 900; background: rgba(0,0,0,0.4); padding: 8px 18px; border-radius: 30px; display: inline-block; margin-bottom: 15px; border: 2px solid #48dbfb; color: #48dbfb; }
+    .timer-badge.warning { border-color: #ff4757; color: #ff4757; animation: pulseRed 0.6s infinite alternate; }
+    
+    @keyframes pulseRed {
+      from { transform: scale(1); box-shadow: 0 0 5px rgba(255, 71, 87, 0.4); }
+      to { transform: scale(1.1); box-shadow: 0 0 20px rgba(255, 71, 87, 0.9); }
+    }
     @keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
   </style>
 </head>
@@ -36,7 +45,7 @@
 
   <!-- MAIN MENU -->
   <div id="screen-main" class="screen active">
-    <h1>Bluff & Blank</h1>
+    <h1>Fool School</h1>
     <p class="subtitle">The Fill-in-the-Blank Lie Game</p>
     <button class="btn btn-host" onclick="openHostLobby()">Host New Game</button>
     <button class="btn btn-join" onclick="openJoinScreen()">Join Game</button>
@@ -72,6 +81,7 @@
 
   <!-- STAGE 1: SUBMIT LIES -->
   <div id="screen-submit-lie" class="screen">
+    <div class="timer-badge" id="timer-lie">45</div>
     <p class="subtitle" style="color:#ff9ff3; font-weight:700;" id="question-cat">Category</p>
     <div class="question-box" id="question-prompt-submit">Prompt</div>
     <div id="lie-input-container">
@@ -80,12 +90,13 @@
     </div>
     <div id="lie-submitted-msg" style="display:none;">
       <p style="color:#1dd1a1; font-weight:700;">Lie Received!</p>
-      <p class="subtitle">Waiting for other players to lie...</p>
+      <p class="subtitle">Waiting for remaining players...</p>
     </div>
   </div>
 
   <!-- STAGE 2: VOTING -->
   <div id="screen-vote" class="screen">
+    <div class="timer-badge" id="timer-vote">45</div>
     <h2>Find the Truth!</h2>
     <div class="question-box" id="question-prompt-vote">Prompt</div>
     <div id="choices-container"></div>
@@ -111,78 +122,96 @@
   </div>
 
   <script>
-    const channel = new BroadcastChannel('fibbage_game_channel');
+    // Dual Storage & Broadcast Engine for 100% Reliable Cross-Tab State Sync
+    const channel = new BroadcastChannel('fool_school_channel');
     
     let isHost = false;
     let roomCode = '';
     let myName = '';
     let players = []; 
     let currentQ = null;
-    let roundIndex = 0;
+    let availableQuestions = [];
     let naturalMaleVoice = null;
+    
+    let timerInterval = null;
+    let timeLeft = 45;
 
-    const questionBank = [
+    const fullQuestionBank = [
       { cat: "Strange Laws", q: "In France, it is strictly illegal to name a pig ____.", truth: "Napoleon" },
       { cat: "Corporate Missteps", q: "In 2019, a corporate employee caused an office panic by accidentally emailing ____ to 2,000 colleagues.", truth: "a picture of a cat in a tie" },
       { cat: "Bizarre History", q: "In 1912, an angry landlord attempted to evict a tenant by releasing three dozen ____ into their living room.", truth: "ferrets" },
       { cat: "Workplace Fails", q: "A man in Ohio was fired on his first day after trying to bribe his supervisor with ____.", truth: "a half-eaten pizza" },
-      { cat: "Odd Inventions", q: "In 1955, a patent was filed for a device designed to automatically ____.", truth: "pat children on the back" }
+      { cat: "Odd Inventions", q: "In 1955, a patent was filed for a device designed to automatically ____.", truth: "pat children on the back" },
+      { cat: "Suburban Drama", q: "An HOA in Florida fined a homeowner $500 after catching them walking their ____ on a leash.", truth: "pet iguana" },
+      { cat: "Wild Crimes", q: "Police were called to a local grocery store after a man attempted to pay for his items using ____.", truth: "a live turtle" }
     ];
 
     const botLies = ["a giant cheese wheel", "the local mayor", "a cursed toaster", "free coupons", "a fake mustache", "tax documents"];
 
-    /* NATURAL VOICE SELECTION ENGINE */
+    /* NATURAL MALE ANNOUNCER ENGINE */
     function loadVoices() {
       if (!('speechSynthesis' in window)) return;
       const voices = window.speechSynthesis.getVoices();
-      
-      const preferredMale = [
-        "Microsoft Guy Online (Natural)",
-        "Google UK English Male",
-        "Google US English",
-        "Daniel",
-        "Alex",
-        "Oliver"
-      ];
-
-      for (let name of preferredMale) {
+      const preferred = ["Microsoft Guy Online (Natural)", "Google UK English Male", "Google US English", "Daniel", "Alex"];
+      for (let name of preferred) {
         const found = voices.find(v => v.name.includes(name));
         if (found) { naturalMaleVoice = found; break; }
       }
-
       if (!naturalMaleVoice) {
-        naturalMaleVoice = voices.find(v => v.lang.startsWith('en') && v.name.toLowerCase().includes('male')) 
-                        || voices.find(v => v.lang.startsWith('en')) 
-                        || voices[0];
+        naturalMaleVoice = voices.find(v => v.lang.startsWith('en') && v.name.toLowerCase().includes('male')) || voices.find(v => v.lang.startsWith('en')) || voices[0];
       }
     }
-
     if (typeof speechSynthesis !== 'undefined') {
       window.speechSynthesis.onvoiceschanged = loadVoices;
       loadVoices();
     }
-
     function speak(text) {
       if (!('speechSynthesis' in window)) return;
       window.speechSynthesis.cancel();
       const u = new SpeechSynthesisUtterance(text);
       if (naturalMaleVoice) u.voice = naturalMaleVoice;
-      u.rate = 0.98;
-      u.pitch = 0.95; 
+      u.rate = 0.98; u.pitch = 0.95;
       window.speechSynthesis.speak(u);
     }
 
-    /* SCREEN ROUTER */
+    /* SCREEN MANAGEMENT */
     function showScreen(id) {
       document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
       document.getElementById(id).classList.add('active');
     }
 
-    /* HOST LOBBY */
+    /* TIMER CONTROL */
+    function startTimer(elementId, onComplete) {
+      clearInterval(timerInterval);
+      timeLeft = 45;
+      const el = document.getElementById(elementId);
+      el.classList.remove('warning');
+      el.innerText = timeLeft;
+
+      timerInterval = setInterval(() => {
+        timeLeft--;
+        el.innerText = timeLeft;
+        if (timeLeft <= 10) el.classList.add('warning');
+        if (timeLeft <= 0) {
+          clearInterval(timerInterval);
+          if (onComplete) onComplete();
+        }
+      }, 1000);
+    }
+
+    function stopTimer() {
+      clearInterval(timerInterval);
+    }
+
+    /* HOST FLOW */
     function openHostLobby() {
       isHost = true;
       roomCode = Math.random().toString(36).substring(2, 6).toUpperCase();
       players = [];
+      availableQuestions = [...fullQuestionBank].sort(() => Math.random() - 0.5);
+
+      localStorage.setItem('fs_room_' + roomCode, JSON.stringify(players));
+      
       document.getElementById('host-code-display').innerText = roomCode;
       document.getElementById('host-next-btn').style.display = 'block';
       document.getElementById('host-continue-btn').style.display = 'block';
@@ -195,7 +224,7 @@
       const botName = "Bot_" + (players.length + 1);
       players.push({ name: botName, score: 0, currentLie: '', currentVote: '' });
       updateHostLobbyUI();
-      broadcastState({ type: 'PLAYER_JOINED_ACK', players, roomCode });
+      syncStateToClients({ type: 'PLAYER_JOINED_ACK', players, roomCode });
     }
 
     function updateHostLobbyUI() {
@@ -205,14 +234,14 @@
 
     function startFibbageGame() {
       if (players.length === 0) addBotPlayer();
-      roundIndex = 0;
       nextQuestion();
     }
 
     function nextQuestion() {
-      if (roundIndex >= questionBank.length) roundIndex = 0;
-      currentQ = questionBank[roundIndex++];
-      
+      if (availableQuestions.length === 0) {
+        availableQuestions = [...fullQuestionBank].sort(() => Math.random() - 0.5);
+      }
+      currentQ = availableQuestions.pop();
       players.forEach(p => { p.currentLie = ''; p.currentVote = ''; });
 
       // Generate Bot Lies
@@ -220,11 +249,11 @@
         b.currentLie = botLies[Math.floor(Math.random() * botLies.length)];
       });
 
-      broadcastState({ type: 'START_SUBMIT_LIE', question: currentQ, roomCode });
+      syncStateToClients({ type: 'START_SUBMIT_LIE', question: currentQ, roomCode });
       setupSubmitLieScreen();
     }
 
-    /* JOIN LOGIC */
+    /* JOIN FLOW */
     function openJoinScreen() {
       isHost = false;
       showScreen('screen-join');
@@ -234,11 +263,13 @@
       myName = document.getElementById('join-name').value.trim();
       const code = document.getElementById('join-code').value.trim().toUpperCase();
 
-      if (!myName || !code) return alert("Please fill in both fields!");
+      if (!myName || !code) return alert("Please enter your name and 4-letter room code!");
 
-      channel.postMessage({ type: 'REQUEST_JOIN', name: myName, code: code });
+      roomCode = code;
       showScreen('screen-player-wait');
       document.getElementById('player-welcome-msg').innerText = `Connecting to room ${code}...`;
+
+      channel.postMessage({ type: 'REQUEST_JOIN', name: myName, code: code });
     }
 
     /* STAGE 1: SUBMIT LIES */
@@ -249,12 +280,22 @@
       document.getElementById('lie-input-container').style.display = 'block';
       document.getElementById('lie-submitted-msg').style.display = 'none';
       document.getElementById('user-lie-input').value = '';
+      
       speak(currentQ.q.replace("____", "blank"));
+
+      startTimer('timer-lie', () => {
+        // Force submit if time runs out
+        if (document.getElementById('lie-input-container').style.display !== 'none') {
+          document.getElementById('user-lie-input').value = "Total Nonsense";
+          submitLie();
+        }
+      });
     }
 
     function submitLie() {
-      const lie = document.getElementById('user-lie-input').value.trim();
-      if (!lie) return alert("Write a lie first!");
+      stopTimer();
+      let lie = document.getElementById('user-lie-input').value.trim();
+      if (!lie) lie = "No answer";
 
       document.getElementById('lie-input-container').style.display = 'none';
       document.getElementById('lie-submitted-msg').style.display = 'block';
@@ -269,7 +310,6 @@
     function recordLie(name, lie) {
       const p = players.find(x => x.name === name);
       if (p) p.currentLie = lie;
-
       if (players.every(x => x.currentLie !== '')) {
         startVotingStage();
       }
@@ -277,6 +317,7 @@
 
     /* STAGE 2: VOTING */
     function startVotingStage() {
+      stopTimer();
       let choices = players.map(p => ({ text: p.currentLie, author: p.name, isTruth: false }));
       choices.push({ text: currentQ.truth, author: 'TRUTH', isTruth: true });
       choices = choices.sort(() => Math.random() - 0.5);
@@ -287,7 +328,7 @@
         b.currentVote = validOptions[Math.floor(Math.random() * validOptions.length)].text;
       });
 
-      broadcastState({ type: 'START_VOTE', question: currentQ, choices, roomCode });
+      syncStateToClients({ type: 'START_VOTE', question: currentQ, choices, roomCode });
       setupVotingScreen(choices);
     }
 
@@ -302,9 +343,18 @@
         const isMyLie = (c.author === myName);
         return `<button class="choice-btn" ${isMyLie ? 'disabled style="opacity:0.4;"' : ''} onclick="submitVote('${c.text.replace(/'/g, "\\'")}')">${c.text} ${isMyLie ? '(Your Lie)' : ''}</button>`;
       }).join('');
+
+      startTimer('timer-vote', () => {
+        // Auto pick first available option on timeout
+        const firstBtn = container.querySelector('.choice-btn:not([disabled])');
+        if (firstBtn && document.getElementById('choices-container').style.display !== 'none') {
+          firstBtn.click();
+        }
+      });
     }
 
     function submitVote(choiceText) {
+      stopTimer();
       document.getElementById('choices-container').style.display = 'none';
       document.getElementById('vote-submitted-msg').style.display = 'block';
 
@@ -318,7 +368,6 @@
     function recordVote(name, voteText) {
       const p = players.find(x => x.name === name);
       if (p) p.currentVote = voteText;
-
       if (players.every(x => x.currentVote !== '')) {
         calculateAndShowReveal();
       }
@@ -326,13 +375,14 @@
 
     /* STAGE 3: REVEAL */
     function calculateAndShowReveal() {
+      stopTimer();
       players.forEach(p => {
         if (p.currentVote === currentQ.truth) p.score += 1000;
         const fooled = players.filter(other => other.currentVote === p.currentLie && other.name !== p.name);
         p.score += (fooled.length * 500);
       });
 
-      broadcastState({ type: 'SHOW_REVEAL', players, truth: currentQ.truth, roomCode });
+      syncStateToClients({ type: 'SHOW_REVEAL', players, truth: currentQ.truth, roomCode });
       setupRevealScreen();
     }
 
@@ -359,7 +409,7 @@
     }
 
     function nextRoundOrScores() {
-      broadcastState({ type: 'SHOW_SCORES', players, roomCode });
+      syncStateToClients({ type: 'SHOW_SCORES', players, roomCode });
       setupScoresScreen();
     }
 
@@ -375,13 +425,14 @@
       `).join('');
     }
 
-    /* BROADCAST ENGINE */
-    function broadcastState(msg) {
+    /* NETWORKING ENGINE */
+    function syncStateToClients(msg) {
+      localStorage.setItem('fs_state_' + roomCode, JSON.stringify({ msg, timestamp: Date.now() }));
       channel.postMessage(msg);
     }
 
-    channel.onmessage = (e) => {
-      const data = e.data;
+    function handleIncomingMessage(data) {
+      if (!data) return;
 
       if (isHost) {
         if (data.type === 'REQUEST_JOIN' && data.code === roomCode) {
@@ -389,14 +440,12 @@
             players.push({ name: data.name, score: 0, currentLie: '', currentVote: '' });
           }
           updateHostLobbyUI();
-          broadcastState({ type: 'PLAYER_JOINED_ACK', players, roomCode });
+          syncStateToClients({ type: 'PLAYER_JOINED_ACK', players, roomCode });
         }
         if (data.type === 'SUBMIT_LIE' && data.code === roomCode) recordLie(data.name, data.lie);
         if (data.type === 'SUBMIT_VOTE' && data.code === roomCode) recordVote(data.name, data.vote);
       } else {
-        // Player Clients Listen Here
-        if (data.type === 'PLAYER_JOINED_ACK' && myName) {
-          roomCode = data.roomCode;
+        if (data.type === 'PLAYER_JOINED_ACK' && data.roomCode === roomCode) {
           players = data.players;
           document.getElementById('player-welcome-msg').innerText = `Connected to room ${roomCode}! Waiting for host to start...`;
         }
@@ -417,7 +466,16 @@
           setupScoresScreen();
         }
       }
-    };
+    }
+
+    channel.onmessage = (e) => handleIncomingMessage(e.data);
+
+    window.addEventListener('storage', (e) => {
+      if (e.key && e.key.startsWith('fs_state_' + roomCode)) {
+        const payload = JSON.parse(e.newValue);
+        if (payload && payload.msg) handleIncomingMessage(payload.msg);
+      }
+    });
   </script>
 </body>
 </html>
