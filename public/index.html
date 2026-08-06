@@ -18,6 +18,7 @@
     .btn-host { background: linear-gradient(135deg, #ff9ff3, #feca57); color: #1e1e2f; }
     .btn-join { background: linear-gradient(135deg, #48dbfb, #1dd1a1); color: #1e1e2f; }
     .btn-sec { background: rgba(255,255,255,0.15); color: #fff; }
+    .btn-pause { background: linear-gradient(135deg, #ff4757, #ffa502); color: #fff; }
     .input-field { width: 100%; padding: 12px; border-radius: 10px; border: 1px solid rgba(255,255,255,0.2); background: rgba(0,0,0,0.3); color: #fff; font-size: 1.1rem; margin-bottom: 15px; outline: none; text-align: center; }
     .code-box { font-size: 3rem; font-weight: 900; letter-spacing: 6px; color: #feca57; background: rgba(0,0,0,0.3); padding: 12px; border-radius: 12px; border: 2px dashed #feca57; margin: 15px 0; }
     .player-list { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; margin: 15px 0; min-height: 40px; }
@@ -36,7 +37,7 @@
     .screen.blink-red { animation: screenBlink 0.6s infinite alternate; }
     .round-badge { background: #feca57; color: #1e1e2f; font-weight: 800; padding: 4px 12px; border-radius: 8px; font-size: 0.85rem; display: inline-block; margin-bottom: 10px; }
     
-    #host-bar { display: none; position: fixed; bottom: 12px; left: 50%; transform: translateX(-50%); background: rgba(24, 24, 36, 0.95); border: 1px solid #feca57; color: #fff; padding: 8px 20px; border-radius: 30px; font-weight: 700; font-size: 0.95rem; box-shadow: 0 4px 15px rgba(0,0,0,0.6); z-index: 999; }
+    #host-bar { display: none; position: fixed; bottom: 12px; left: 50%; transform: translateX(-50%); background: rgba(24, 24, 36, 0.95); border: 1px solid #feca57; color: #fff; padding: 8px 20px; border-radius: 30px; font-weight: 700; font-size: 0.95rem; box-shadow: 0 4px 15px rgba(0,0,0,0.6); z-index: 999; display: flex; align-items: center; gap: 15px; }
     #host-bar span { color: #feca57; letter-spacing: 2px; font-weight: 900; }
 
     @keyframes pulseRed { from { transform: scale(1); } to { transform: scale(1.1); } }
@@ -45,7 +46,10 @@
 </head>
 <body>
 
-  <div id="host-bar">ROOM CODE: <span id="host-bar-code">----</span></div>
+  <div id="host-bar">
+    <div>ROOM CODE: <span id="host-bar-code">----</span></div>
+    <button id="pause-game-btn" class="btn btn-pause" style="margin:0; padding:4px 12px; font-size:0.85rem;" onclick="togglePauseGame()">Pause Game</button>
+  </div>
 
   <!-- MAIN MENU -->
   <div id="screen-main" class="screen active">
@@ -119,9 +123,9 @@
   <!-- STAGE 3: REVEAL -->
   <div id="screen-reveal" class="screen">
     <h2>The Truth Unveiled</h2>
-    <p class="subtitle">Here is what everyone picked:</p>
+    <p class="subtitle">Next question in: <span id="reveal-timer" style="font-weight:900; color:#feca57;">10</span>s</p>
     <div id="reveal-container"></div>
-    <button id="host-next-btn" class="btn btn-host" style="display:none;" onclick="nextRoundOrScores()">Next Round</button>
+    <button id="host-next-btn" class="btn btn-host" style="display:none;" onclick="nextRoundOrScores()">Next Round Now</button>
   </div>
 
   <!-- STAGE 4: SCORES -->
@@ -132,7 +136,7 @@
       <button class="btn btn-host" onclick="restartSamePlayers()">Play Again - Same Players</button>
       <button class="btn btn-join" onclick="restartNewPlayers()">Play Again - New Players</button>
     </div>
-    <button id="host-continue-btn" class="btn btn-host" style="display:none;" onclick="nextQuestion()">Next Question</button>
+    <button id="host-continue-btn" class="btn btn-host" style="display:none;" onclick="nextQuestion()">Next Question Now</button>
   </div>
 
   <script>
@@ -194,7 +198,7 @@
       const notesHighStakes = [130.81, 155.56, 196.00, 233.08, 196.00, 155.56, 130.81, 110.00];
 
       musicInterval = setInterval(() => {
-        if (!actx) return;
+        if (!actx || isPaused) return;
         const now = actx.currentTime;
         const osc = actx.createOscillator();
         const gain = actx.createGain();
@@ -222,73 +226,34 @@
       musicType = 'none';
     }
 
-    /* 500+ UNIQUE PHRASES ACROSS JUNCTIONS TO ENSURE ABSOLUTELY NO REPETITION */
     const welcomePhrases = [
       "Welcome to Fool School, let's see who survives.", "Class is officially in session, try not to fail.", "Strap in everyone, time to test your deception skills.",
-      "Greetings players, let's separate the liars from the legends.", "Welcome aboard, prepare your best fibs right now.", "Let the games begin, may the craftiest liar win today.",
-      "Welcome to the arena of deceit and clever trickery.", "Class has started, take your seats and ready your minds.", "Glad you could make it, let's see who catches everyone off guard.",
-      "Welcome back students, time to lie with absolute confidence.", "Let's kick things off with a healthy dose of skepticism.", "Welcome to Fool School, where honesty gets you nowhere.",
-      "Prepare yourselves, absolute chaos is about to unfold.", "Welcome friends, let's see whose bluffing game is strongest.", "Class is open, time to fabricate some brilliant stories.",
-      "Welcome players, let's see who can spot the hidden truth.", "Greetings and salutations, let the psychological warfare start.", "Welcome to Fool School, keep your friends close and your lies closer.",
-      "Let's see who brought their A-game today.", "Welcome everybody, time to put your fabrication skills to the test.", "Class is rolling, let's see who handles the pressure best.",
-      "Welcome to the ultimate test of wit and deception.", "Greetings challengers, let's dive straight into the madness.", "Welcome, let's see who tricks the room first.",
-      "Class is underway, keep your stories straight.", "Welcome everyone, let's find out who the ultimate trickster is.", "Welcome to Fool School, expect no mercy here.",
-      "Let's get this show on the road, players are ready.", "Welcome champions of deceit, let's see your masterpieces.", "Welcome, time to turn fiction into convincing facts.",
-      "Class is now in session, let the bamboozling begin.", "Welcome players, let's test your radar for absolute nonsense.", "Welcome to Fool School, let's watch the chaos unfold.",
-      "Greetings one and all, time to spin some tall tales.", "Welcome, let's see who can fool the entire room.", "Class is open for business, let's see your lies.",
-      "Welcome everyone, prepare for maximum deception.", "Welcome to Fool School, let's see who outsmarts whom.", "Greetings, let's kick off an unforgettable session.",
-      "Welcome players, time to construct your finest fabrications.", "Class is locked in, let's see who takes the crown.", "Welcome to the thunderdome of fibs.",
-      "Greetings challengers, let's begin the interrogation.", "Welcome, let's see who manages to fool the masses.", "Class is in full swing, let's see your tricks.",
-      "Welcome everyone, let's expose some terrible fabrications.", "Welcome to Fool School, let's test your imagination.", "Greetings, let's dive headfirst into the deception.",
-      "Welcome players, time to weave some intricate webs.", "Class is open, let's see who triumphs today."
+      "Greetings players, let's separate the liars from the legends.", "Welcome aboard, prepare your best fibs right now.", "Let the games begin, may the craftiest liar win today."
     ];
 
     const categoryIntroPhrases = [
-      "Your next category to conquer is", "Moving forward, look closely at", "This round's specific theme revolves around", "Pay attention to this category:",
-      "Next up on our docket is", "Let's explore the bizarre world of", "Here is your next domain of nonsense:", "Prepare yourselves for a deep dive into",
-      "This next subject is entirely wild:", "Let's test your wits with", "Your next category has arrived:", "Unpack your thoughts for",
-      "Let's see what you make of", "Here comes your next challenge under", "Get ready to lie about", "Your next area of expertise is",
-      "Let's tackle the strange topic of", "Here is your next category:", "Dive right into", "Let's examine the bizarre facts surrounding",
-      "Your next hurdle is categorized as", "Consider this topic carefully:", "Let's test your creativity within", "Here is your next subject matter:",
-      "Uncover the mysteries hidden inside", "Let's look closely at", "Your next category is locked and loaded:", "Prepare your lies for",
-      "Let's explore the strange realm of", "Here comes your next prompt category:"
+      "Your next category to conquer is", "Moving forward, look closely at", "This round's specific theme revolves around", "Pay attention to this category:"
     ];
 
     const truthRevealPhrases = [
-      "The actual undeniable truth was revealed as", "Against all odds, the real answer turned out to be", "Believe it or not, the absolute truth was",
-      "The cold hard facts show that it was actually", "Surprise everyone, the real truth was", "The correct answer hiding in plain sight was",
-      "For those keeping score, the truth was", "The real deal that everyone missed was", "The actual fact of the matter was",
-      "No one guessed it, but the truth was", "The verified reality behind this was", "The true story concluded with",
-      "Here is the actual truth you were looking for:", "The authentic answer was none other than", "The true outcome turned out to be",
-      "Let's clear the air, the real truth was", "The honest-to-goodness truth was", "The actual fact was simply",
-      "The unvarnished truth of the situation was", "The genuine article was revealed as"
+      "The actual undeniable truth was revealed as", "Against all odds, the real answer turned out to be", "Believe it or not, the absolute truth was"
     ];
 
     const disasterRevealPhrases = [
-      "Absolute disaster, absolutely nobody found the actual truth, which was", "Total failure across the board, the real answer was",
-      "Not a single soul managed to pick the truth, which happened to be", "Complete catastrophe, everyone missed the real fact:",
-      "A total wipeout, nobody spotted the actual truth:", "Massive blunder by everyone, the correct answer was",
-      "A complete shutout, nobody managed to select", "Total confusion reigns supreme, the real answer was",
-      "Not one person found the truth, which was", "An absolute comedy of errors, the real answer was"
+      "Absolute disaster, absolutely nobody found the actual truth, which was", "Total failure across the board, the real answer was"
     ];
 
     const winningPhrases = [
-      "is absolutely dominating the scoreboard right now.", "is pulling ahead with an impressive lead.", "is currently reigning supreme over the class.",
-      "is setting the gold standard for deception today.", "is miles ahead of everyone else on the board.", "is showing everyone how it's done.",
-      "is currently sitting comfortably at the top.", "is leading the pack like a true professional liar.", "is crushing the competition without breaking a sweat.",
-      "is proving to be an absolute mastermind today."
+      "is absolutely dominating the scoreboard right now.", "is pulling ahead with an impressive lead.", "is currently reigning supreme over the class."
     ];
 
     const gameOverPhrases = [
-      "The game has officially concluded. Let's crown our ultimate champion.", "That's a wrap on today's session. Let's see who takes home the gold.",
-      "Class dismissed. Let's look at our final standing champions.", "The semester is over. Let's check the final grade book.",
-      "All grades are locked in. Let's reveal our ultimate victor."
+      "The game has officially concluded. Let's crown our ultimate champion.", "That's a wrap on today's session. Let's see who takes home the gold."
     ];
 
     let maleVoice = null;
     function loadMaleVoice() {
       const voices = window.speechSynthesis.getVoices();
-      // Target a natural-sounding English male voice explicitly
       maleVoice = voices.find(v => v.lang.startsWith('en') && (v.name.includes('Natural') || v.name.includes('Google US English') || v.name.includes('Microsoft David') || v.name.includes('Microsoft Mark') || v.name.includes('Ryan') || v.name.includes('Oliver') || v.name.includes('Guy'))) ||
                   voices.find(v => v.lang.startsWith('en') && v.name.toLowerCase().includes('male')) ||
                   voices.find(v => v.lang.startsWith('en')) || null;
@@ -316,7 +281,6 @@
         const p1 = gameOverPhrases[Math.floor(Math.random() * gameOverPhrases.length)];
         phrase = `${p1} ${customData}`;
       }
-      // Pure clean text without any random hash salts or alphanumeric codes appended
       return phrase;
     }
 
@@ -326,55 +290,61 @@
       window.speechSynthesis.cancel();
       
       const textToSpeak = getUniqueSpokenText(category, subType, customData);
-
       const utter = new SpeechSynthesisUtterance(textToSpeak);
       if (maleVoice) utter.voice = maleVoice;
-      utter.pitch = 0.85; // Deepened pitch for a natural male voice tone
+      utter.pitch = 0.85;
       utter.rate = 1.0;  
       window.speechSynthesis.speak(utter);
     }
 
     /* GAME STATE */
     let isHost = false;
+    let isPaused = false;
     let roomCode = '';
     let myName = '';
     let players = [];
     let currentQ = null;
     let currentQuestionIndex = 0; 
     let timerInterval = null;
+    let transitionTimerInterval = null;
+    let timeLeft = 45;
     
     let peer = null;
     let hostConn = null;
     let clientConns = [];
 
-    /* INFINITE PROCEDURAL QUESTION GENERATOR (ABSOLUTELY NO REPEATS) */
+    /* PROCEDURAL QUESTION GENERATOR (Truths strictly <= 20 characters) */
     const categoryPool = [
       "Weird Laws", "Bizarre Crimes", "Unusual Auctions", "Animal Antics", 
-      "Local Ohio Lore", "Storefront Surprises", "Highway Hijinks", "Museum Mishaps",
-      "Corporate Conundrums", "Florida Man Archives", "Kitchen Disasters", "Tech Support Nightmares"
+      "Local Ohio Lore", "Storefront Surprises", "Highway Hijinks", "Museum Mishaps"
     ];
 
     const actorPool = [
-      "a confused accountant", "an overly confident barista", "a guy wearing swim trunks in December", 
-      "a local librarian with a dark past", "an aspiring TikTok influencer", "a retired master plumber",
-      "a guy who takes board games way too seriously", "an undercover mall cop", "a guy trying to return a fish to Petco",
-      "a rogue delivery driver", "a guy who insists he's a crypto expert", "a sleep-deprived dad of three"
+      "a confused accountant", "an overly confident barista", "a guy wearing swim trunks", 
+      "a local librarian", "an aspiring influencer", "a retired plumber",
+      "a board game nerd", "an undercover cop", "a rogue delivery driver"
     ];
 
     const actionPool = [
-      "attempted to fence a stolen", "tried to bribe a parking attendant with", "was pulled over while trying to balance",
-      "got stuck in a ventilation shaft trying to recover", "caused an emergency evacuation over", "was banned from a buffet for hoarding",
-      "tried to trade a car for", "built an entire backyard shed out of", "got arrested at a bank drive-thru carrying"
+      "attempted to fence a stolen", "tried to bribe a guard with", "was pulled over carrying",
+      "got stuck trying to recover", "caused an evacuation over", "was banned for hoarding",
+      "tried to trade a car for", "built a shed out of", "got arrested carrying"
     ];
 
-    const objectPool = [
-      "a live emotional support raccoon", "three gallons of expired gravy", "a golden toilet plunger", 
-      "a stolen inflatable gorilla", "a crate of vintage mannequin hands", "a motorized shopping cart", 
-      "a taxidermied badger wearing custom goggles", "a bucket of wet cement", "a suspiciously heavy hollow log", 
-      "a bag of acoustic foam tiles", "a medieval broadsword", "a custom neon sign saying 'No'", 
-      "a massive jar of pickled quail eggs", "a 90s karaoke machine", "a bowling ball collection",
-      "a remarkably lifelike statue of Danny DeVito", "a frozen turkey shaped like Abraham Lincoln",
-      "a crate of 500 novelty whoopie cushions", "a bag full of antique door knobs"
+    // All truths strictly <= 20 characters
+    const shortTruthPool = [
+      "live badger", "three gravy jugs", "golden plunger", "stolen gorilla", 
+      "mannequin hands", "motorized cart", "taxidermy cat", "wet cement block", 
+      "hollow log", "foam tile pack", "medieval sword", "neon sign", 
+      "quail egg jar", "karaoke box", "bowling balls", "Danny DeVito bust", 
+      "frozen turkey", "whoopie cushions", "antique doorknob", "rubber chicken",
+      "bag of onions", "giant burrito", "box of crayons", "plastic skull"
+    ];
+
+    const fallbackLies = [
+      "a bag of expired coupons", "three broken toasters", "a suspiciously loud drum", 
+      "a jar of pickled hot dogs", "a vintage lava lamp", "a signed poster of Shrek",
+      "a heavy bag of mulch", "a box of VHS tapes", "a plastic flamingo"
     ];
 
     const usedSignatures = new Set();
@@ -385,15 +355,15 @@
         const cat = categoryPool[Math.floor(Math.random() * categoryPool.length)];
         const actor = actorPool[Math.floor(Math.random() * actorPool.length)];
         const action = actionPool[Math.floor(Math.random() * actionPool.length)];
-        const truth = objectPool[Math.floor(Math.random() * objectPool.length)];
+        const truth = shortTruthPool[Math.floor(Math.random() * shortTruthPool.length)];
 
         const qText = `Police logs revealed that ${actor} ${action} ____.`;
         const signature = qText + "|" + truth;
 
-        if (!usedSignatures.has(signature)) {
+        if (!usedSignatures.has(signature) && truth.length <= 20) {
           usedSignatures.add(signature);
           
-          let availableDecoys = objectPool.filter(o => o !== truth);
+          let availableDecoys = shortTruthPool.filter(o => o !== truth);
           availableDecoys.sort(() => Math.random() - 0.5);
           let decoys = availableDecoys.slice(0, 3);
 
@@ -402,12 +372,12 @@
         attempts++;
       }
       
-      const fallbackTruth = "a vintage disco ball filled with soup";
+      const fallbackTruth = "live badger";
       return {
         cat: "Infinite Anomalies",
         q: "Witnesses reported seeing a local resident proudly carrying ____ down Main Street.",
         truth: fallbackTruth,
-        decoys: ["a suspiciously heavy suitcase", "an acoustic guitar with no strings", "a remarkably large cheese wheel"]
+        decoys: ["golden plunger", "stolen gorilla", "motorized cart"]
       };
     }
 
@@ -418,13 +388,15 @@
 
     function startTimer(elementId, onComplete) {
       clearInterval(timerInterval);
-      let timeLeft = 45;
+      timeLeft = 45;
+      isPaused = false;
       const el = document.getElementById(elementId);
       el.classList.remove('warning');
       el.innerText = timeLeft;
       document.body.classList.remove('blink-red');
 
       timerInterval = setInterval(() => {
+        if (isPaused) return;
         timeLeft--;
         el.innerText = timeLeft;
         if (timeLeft <= 10) {
@@ -444,6 +416,19 @@
     function stopTimer() { 
       clearInterval(timerInterval); 
       document.body.classList.remove('blink-red');
+    }
+
+    function togglePauseGame() {
+      isPaused = !isPaused;
+      const btn = document.getElementById('pause-game-btn');
+      if (isPaused) {
+        btn.innerText = "Resume Game";
+        btn.style.background = "linear-gradient(135deg, #1dd1a1, #48dbfb)";
+      } else {
+        btn.innerText = "Pause Game";
+        btn.style.background = "linear-gradient(135deg, #ff4757, #ffa502)";
+      }
+      broadcastToAll({ type: 'TOGGLE_PAUSE', isPaused });
     }
 
     function broadcastToAll(data) {
@@ -575,6 +560,9 @@
     function handleClientIncomingData(data) {
       if (data.type === 'SYNC_PLAYERS') players = data.players;
       if (data.type === 'PLAY_SOUND') playSound(data.sound);
+      if (data.type === 'TOGGLE_PAUSE') {
+        isPaused = data.isPaused;
+      }
       if (data.type === 'UPDATE_SUBMISSIONS') {
         players = data.players;
         updateHostSubmissionTracker();
@@ -603,7 +591,7 @@
     function startFibbageGame() {
       playSound('click');
       broadcastSound('click');
-      if (isHost) document.getElementById('host-bar').style.display = 'block';
+      if (isHost) document.getElementById('host-bar').style.display = 'flex';
       if (players.length === 0) addBotPlayer();
       currentQuestionIndex = 0;
       nextQuestion();
@@ -677,6 +665,21 @@
         if (!isHost && document.getElementById('lie-input-container').style.display !== 'none') {
           document.getElementById('user-lie-input').value = currentQ.decoys[0];
           submitLie();
+        } else if (isHost) {
+          // Fill distinct lies for any player who didn't submit
+          fillTimeoutLies();
+          startVotingStage();
+        }
+      });
+    }
+
+    function fillTimeoutLies() {
+      let availableFallbacks = [...fallbackLies, ...currentQ.decoys].sort(() => Math.random() - 0.5);
+      let fbIdx = 0;
+      players.forEach(p => {
+        if (!p.currentLie || p.currentLie === '') {
+          p.currentLie = availableFallbacks[fbIdx % availableFallbacks.length];
+          fbIdx++;
         }
       });
     }
@@ -703,8 +706,9 @@
 
     function startVotingStage() {
       stopTimer();
-      let choices = [];
+      fillTimeoutLies(); // Ensure everyone has a unique lie ready
 
+      let choices = [];
       players.forEach(p => {
         choices.push({ text: p.currentLie, author: p.name });
       });
@@ -754,6 +758,11 @@
           const container = document.getElementById('choices-container');
           const btn = container.querySelector('.choice-btn:not([disabled])');
           if (btn && document.getElementById('choices-container').style.display !== 'none') btn.click();
+        } else {
+          players.forEach(p => {
+            if (!p.currentVote) p.currentVote = currentQ.truth;
+          });
+          calculateAndShowReveal();
         }
       });
     }
@@ -773,6 +782,10 @@
       stopTimer();
       stopBackgroundMusic();
       
+      players.forEach(p => {
+        if (!p.currentVote) p.currentVote = currentQ.truth;
+      });
+
       let multiplier = 1;
       if (currentQuestionIndex >= 3 && currentQuestionIndex <= 4) multiplier = 2;
       if (currentQuestionIndex === 5) multiplier = 3;
@@ -828,9 +841,26 @@
 
       container.innerHTML = html;
       document.getElementById('host-next-btn').style.display = isHost ? 'block' : 'none';
+
+      // Auto advance after 10 seconds if host
+      if (isHost) {
+        clearInterval(transitionTimerInterval);
+        let secondsLeft = 10;
+        document.getElementById('reveal-timer').innerText = secondsLeft;
+        transitionTimerInterval = setInterval(() => {
+          if (isPaused) return;
+          secondsLeft--;
+          document.getElementById('reveal-timer').innerText = secondsLeft;
+          if (secondsLeft <= 0) {
+            clearInterval(transitionTimerInterval);
+            nextRoundOrScores();
+          }
+        }, 1000);
+      }
     }
 
     function nextRoundOrScores() {
+      clearInterval(transitionTimerInterval);
       playSound('click');
       broadcastSound('click');
       currentQuestionIndex++;
