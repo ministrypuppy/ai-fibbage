@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Fibbage Style Game</title>
+  <title>Bluff & Blank</title>
   <style>
     * {
       box-sizing: border-box;
@@ -23,8 +23,9 @@
       overflow-x: hidden;
     }
 
-    /* Main Menu Screen */
-    #main-menu {
+    /* Screen Panels */
+    .screen {
+      display: none;
       background: rgba(255, 255, 255, 0.05);
       backdrop-filter: blur(10px);
       border: 1px solid rgba(255, 255, 255, 0.1);
@@ -35,15 +36,19 @@
       text-align: center;
       box-shadow: 0 20px 40px rgba(0,0,0,0.4);
       position: relative;
-      animation: fadeIn 0.4s ease-out;
+      animation: fadeIn 0.3s ease-out;
+    }
+
+    .screen.active {
+      display: block;
     }
 
     .title-container {
-      margin-bottom: 30px;
+      margin-bottom: 25px;
     }
 
     .main-title {
-      font-size: 2.5rem;
+      font-size: 2.4rem;
       font-weight: 800;
       background: linear-gradient(45deg, #ff6b6b, #feca57, #48dbfb, #ff9ff3);
       background-size: 300% 300%;
@@ -76,15 +81,16 @@
       cursor: pointer;
       transition: transform 0.2s ease, box-shadow 0.2s ease;
       box-shadow: 0 6px 15px rgba(72, 219, 251, 0.3);
+      width: 100%;
     }
 
     .btn:hover {
-      transform: translateY(-3px) scale(1.02);
-      box-shadow: 0 10px 20px rgba(72, 219, 251, 0.4);
+      transform: translateY(-2px) scale(1.01);
+      box-shadow: 0 8px 18px rgba(72, 219, 251, 0.4);
     }
 
     .btn:active {
-      transform: translateY(1px) scale(0.98);
+      transform: translateY(1px);
     }
 
     .btn-host {
@@ -99,6 +105,67 @@
       box-shadow: 0 6px 15px rgba(72, 219, 251, 0.3);
     }
 
+    .btn-secondary {
+      background: rgba(255, 255, 255, 0.15);
+      color: #fff;
+      box-shadow: none;
+      margin-top: 10px;
+    }
+
+    /* Form Inputs */
+    .input-group {
+      margin-bottom: 20px;
+      text-align: left;
+    }
+
+    .input-group label {
+      display: block;
+      font-size: 0.85rem;
+      font-weight: 700;
+      color: #a0a0c0;
+      margin-bottom: 6px;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+    }
+
+    .input-field {
+      width: 100%;
+      padding: 14px 16px;
+      border-radius: 12px;
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      background: rgba(0, 0, 0, 0.25);
+      color: #fff;
+      font-size: 1.1rem;
+      font-weight: 600;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+
+    .input-field:focus {
+      border-color: #48dbfb;
+    }
+
+    .code-input {
+      text-transform: uppercase;
+      letter-spacing: 4px;
+      text-align: center;
+      font-size: 1.5rem;
+    }
+
+    /* Host Code Display */
+    .code-box {
+      font-size: 3rem;
+      font-weight: 900;
+      letter-spacing: 8px;
+      color: #feca57;
+      background: rgba(0, 0, 0, 0.3);
+      padding: 15px;
+      border-radius: 16px;
+      border: 2px dashed rgba(254, 202, 87, 0.5);
+      margin: 20px 0;
+    }
+
+    /* Audio Toggle */
     .audio-control-container {
       display: flex;
       align-items: center;
@@ -122,11 +189,7 @@
       height: 26px;
     }
 
-    .switch input {
-      opacity: 0;
-      width: 0;
-      height: 0;
-    }
+    .switch input { opacity: 0; width: 0; height: 0; }
 
     .slider {
       position: absolute;
@@ -147,33 +210,10 @@
       border-radius: 50%;
     }
 
-    input:checked + .slider {
-      background-color: #1dd1a1;
-    }
+    input:checked + .slider { background-color: #1dd1a1; }
+    input:checked + .slider:before { transform: translateX(22px); }
 
-    input:checked + .slider:before {
-      transform: translateX(22px);
-    }
-
-    /* Gameplay Screen */
-    #game-area {
-      display: none;
-      width: 90%;
-      max-width: 580px;
-      text-align: center;
-      animation: fadeIn 0.4s ease-out;
-    }
-
-    .game-card {
-      background: rgba(255, 255, 255, 0.05);
-      backdrop-filter: blur(10px);
-      border: 1px solid rgba(255, 255, 255, 0.1);
-      border-radius: 20px;
-      padding: 35px 25px;
-      box-shadow: 0 10px 30px rgba(0,0,0,0.3);
-      animation: subtlePulse 4s ease-in-out infinite;
-    }
-
+    /* Gameplay Styling */
     .category-tag {
       display: inline-block;
       background: rgba(255, 159, 243, 0.2);
@@ -189,7 +229,7 @@
     }
 
     .question-box {
-      font-size: 1.35rem;
+      font-size: 1.3rem;
       font-weight: 600;
       line-height: 1.5;
       color: #f1f2f6;
@@ -211,12 +251,6 @@
       padding: 0 4px;
     }
 
-    .game-controls {
-      display: flex;
-      gap: 12px;
-      justify-content: center;
-    }
-
     .bg-shape {
       position: absolute;
       border-radius: 50%;
@@ -229,7 +263,7 @@
     .shape-2 { width: 250px; height: 250px; background: #48dbfb; bottom: -70px; right: -70px; }
 
     @keyframes fadeIn {
-      from { opacity: 0; transform: translateY(10px); }
+      from { opacity: 0; transform: translateY(8px); }
       to { opacity: 1; transform: translateY(0); }
     }
 
@@ -238,18 +272,12 @@
       50% { background-position: 100% 50%; }
       100% { background-position: 0% 50%; }
     }
-
-    @keyframes subtlePulse {
-      0% { box-shadow: 0 10px 30px rgba(0,0,0,0.3); }
-      50% { box-shadow: 0 10px 35px rgba(255, 159, 243, 0.15); }
-      100% { box-shadow: 0 10px 30px rgba(0,0,0,0.3); }
-    }
   </style>
 </head>
 <body>
 
   <!-- Main Menu -->
-  <div id="main-menu">
+  <div id="screen-main" class="screen active">
     <div class="bg-shape shape-1"></div>
     <div class="bg-shape shape-2"></div>
 
@@ -259,8 +287,8 @@
     </div>
 
     <div class="menu-actions">
-      <button class="btn btn-host" onclick="startGame('host')">Host Game</button>
-      <button class="btn btn-join" onclick="startGame('join')">Join Game</button>
+      <button class="btn btn-host" onclick="openHostLobby()">Host Game</button>
+      <button class="btn btn-join" onclick="openJoinScreen()">Join Game</button>
     </div>
 
     <div class="audio-control-container">
@@ -272,18 +300,47 @@
     </div>
   </div>
 
-  <!-- Gameplay Screen -->
-  <div id="game-area">
-    <div class="game-card">
-      <div class="category-tag" id="category-display">Bizarre Laws</div>
-      <div id="question-display" class="question-box">
-        Loading statement...
-      </div>
+  <!-- Host Lobby Screen -->
+  <div id="screen-host" class="screen">
+    <h2>Room Lobby</h2>
+    <p class="subtitle">Share this code with your players:</p>
+    
+    <div class="code-box" id="generated-room-code">ABCD</div>
 
-      <div class="game-controls">
-        <button class="btn btn-join" onclick="nextFibbageQuestion()">Next Prompt</button>
-        <button class="btn" style="background: #ff6b6b; color: #fff;" onclick="returnToMenu()">Main Menu</button>
-      </div>
+    <button class="btn btn-host" onclick="startGameplay()">Start Game</button>
+    <button class="btn btn-secondary" onclick="showScreen('screen-main')">Cancel</button>
+  </div>
+
+  <!-- Join Game Screen -->
+  <div id="screen-join" class="screen">
+    <h2>Join Session</h2>
+    <p class="subtitle" style="margin-bottom: 20px;">Enter details to enter room</p>
+
+    <div class="input-group">
+      <label>Your Name</label>
+      <input type="text" id="player-name" class="input-field" placeholder="Player Name" maxlength="15">
+    </div>
+
+    <div class="input-group">
+      <label>4-Letter Room Code</label>
+      <input type="text" id="room-code-input" class="input-field code-input" placeholder="XXXX" maxlength="4" oninput="this.value = this.value.toUpperCase()">
+    </div>
+
+    <button class="btn btn-join" onclick="submitJoin()">Enter Room</button>
+    <button class="btn btn-secondary" onclick="showScreen('screen-main')">Back</button>
+  </div>
+
+  <!-- Active Gameplay Screen -->
+  <div id="screen-game" class="screen" style="max-width: 580px;">
+    <div class="category-tag" id="category-display">Bizarre Laws</div>
+    
+    <div id="question-display" class="question-box">
+      Loading statement...
+    </div>
+
+    <div style="display: flex; gap: 12px;">
+      <button class="btn btn-join" onclick="nextFibbageQuestion()">Next Prompt</button>
+      <button class="btn btn-secondary" style="margin-top:0;" onclick="showScreen('screen-main')">Menu</button>
     </div>
   </div>
 
@@ -291,25 +348,76 @@
     let audioEnabled = true;
     let selectedVoice = null;
 
-    /* ANNOUNCER RANDOM DIALOGUE ARRAYS */
+    /* ANNOUNCER VOICE LINES */
     const hostIntros = [
-      "Alright host, try not to fall for your own fake answers.",
-      "Look at you running the room. Let's see who can lie best.",
-      "Session hosted! Time to fool your friends with absolute lies."
+      "Welcome to the host seat! Try not to fall for your own lies.",
+      "Lobby is open! Tell your friends to join in before we start.",
+      "Host mode initialized. Let's get this room filled up."
     ];
 
     const joinIntros = [
-      "Welcome in! Get ready to write the most believable nonsense.",
-      "You joined! Bring your best fake facts.",
-      "A new challenger appears. Good luck spotting the truth."
+      "Join screen ready. Put your name in and let's do this.",
+      "Welcome! Enter the room code and prepare your best fake facts."
     ];
 
-    const menuIntros = [
-      "Back to safety.",
-      "Main menu engaged. Catch your breath."
+    const gameStartLines = [
+      "Game starting! Time to bluff your way to victory.",
+      "Here comes the first prompt. Try to look smart!"
     ];
 
-    /* FIBBAGE-STYLE QUESTION BANK & GENERATOR ENGINE */
+    /* SCREEN ROUTER */
+    function showScreen(screenId) {
+      document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+      document.getElementById(screenId).classList.add('active');
+    }
+
+    /* HOST GAME LOGIC */
+    function openHostLobby() {
+      // Generate 4-Letter Code
+      const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+      let code = '';
+      for (let i = 0; i < 4; i++) {
+        code += chars.charAt(Math.floor(Math.random() * chars.length));
+      }
+      
+      document.getElementById('generated-room-code').innerText = code;
+      showScreen('screen-host');
+      speak(getRandom(hostIntros));
+    }
+
+    /* JOIN GAME LOGIC */
+    function openJoinScreen() {
+      document.getElementById('player-name').value = '';
+      document.getElementById('room-code-input').value = '';
+      showScreen('screen-join');
+      speak(getRandom(joinIntros));
+    }
+
+    function submitJoin() {
+      const name = document.getElementById('player-name').value.trim();
+      const code = document.getElementById('room-code-input').value.trim();
+
+      if (!name) {
+        speak("Hey, enter your name first!");
+        alert("Please enter your name.");
+        return;
+      }
+      if (code.length !== 4) {
+        speak("Room code needs to be exactly 4 letters!");
+        alert("Please enter a valid 4-letter room code.");
+        return;
+      }
+
+      startGameplay();
+    }
+
+    function startGameplay() {
+      showScreen('screen-game');
+      speak(getRandom(gameStartLines));
+      nextFibbageQuestion();
+    }
+
+    /* FIBBAGE QUESTION GENERATOR */
     const fibbageQuestions = [
       { cat: "Corporate Chaos", q: "In 2019, an office worker was formally reprimanded after accidentally sending an email containing ____ to the entire executive team." },
       { cat: "Strange History", q: "In 1912, a disgruntled landlord attempted to evict a tenant by releasing three dozen ____ into their living room." },
@@ -318,11 +426,9 @@
       { cat: "Suburban Politics", q: "A local HOA president called the police in 2021 because a neighbor's lawn ornament was wearing ____." },
       { cat: "Bizarre Crimes", q: "Police in Florida arrested a man who attempted to rob a drive-thru while carrying a live ____." },
       { cat: "Relationship Drama", q: "A couple broke off their engagement after arguing for six hours over the proper way to ____." },
-      { cat: "Modern Hazards", q: "A luxury hotel guest was banned for life after attempting to cook ____ using the room's electric iron." },
-      { cat: "Extreme Awkwardness", q: "During a formal dinner party, a guest panicked and hid ____ inside a potted plant." }
+      { cat: "Modern Hazards", q: "A luxury hotel guest was banned for life after attempting to cook ____ using the room's electric iron." }
     ];
 
-    // Procedural Generator for Endless Fibbage-Style Prompts
     const subjects = ["an overly ambitious manager", "a local HOA board member", "a disgruntled tenant", "a tech CEO", "an anonymous coworker", "a competitive neighbor"];
     const weirdEvents = [
       "was caught secretly replacing the office coffee with ____.",
@@ -336,58 +442,28 @@
       return arr[Math.floor(Math.random() * arr.length)];
     }
 
-    function generateFibbagePrompt() {
+    function nextFibbageQuestion() {
+      let item;
       if (Math.random() > 0.4) {
-        return getRandom(fibbageQuestions);
+        item = getRandom(fibbageQuestions);
       } else {
-        const sub = getRandom(subjects);
-        const evt = getRandom(weirdEvents);
-        return {
+        item = {
           cat: "Dynamic Dilemma",
-          q: `In 2023, ${sub} ${evt}`
+          q: `In 2023, ${getRandom(subjects)} ${getRandom(weirdEvents)}`
         };
       }
-    }
 
-    function nextFibbageQuestion() {
-      const item = generateFibbagePrompt();
       document.getElementById('category-display').innerText = item.cat;
-      
-      // Highlight the blank visually
       const formattedText = item.q.replace("____", '<span class="blank-highlight">__________</span>');
       document.getElementById('question-display').innerHTML = formattedText;
       
-      // Speak the prompt naturally
-      const spokenText = item.q.replace("____", "blank");
-      speak(spokenText);
+      speak(item.q.replace("____", "blank"));
     }
 
-    /* GAME FLOW CONTROLS */
-    function startGame(mode) {
-      document.getElementById('main-menu').style.display = 'none';
-      document.getElementById('game-area').style.display = 'block';
-
-      const intro = (mode === 'host') ? getRandom(hostIntros) : getRandom(joinIntros);
-      speak(intro);
-      
-      // Display first prompt immediately
-      nextFibbageQuestion();
-    }
-
-    function returnToMenu() {
-      document.getElementById('game-area').style.display = 'none';
-      document.getElementById('main-menu').style.display = 'block';
-      speak(getRandom(menuIntros));
-    }
-
-    /* VOICE SYNTHESIS */
+    /* VOICE ENGINE */
     function toggleAudio(enabled) {
       audioEnabled = enabled;
-      if (audioEnabled) {
-        speak("Audio back on.");
-      } else {
-        window.speechSynthesis.cancel();
-      }
+      if (!audioEnabled) window.speechSynthesis.cancel();
     }
 
     function initVoice() {
@@ -396,10 +472,7 @@
 
       for (let name of preferred) {
         const found = voices.find(v => v.name.includes(name));
-        if (found) {
-          selectedVoice = found;
-          break;
-        }
+        if (found) { selectedVoice = found; break; }
       }
 
       if (!selectedVoice) {
