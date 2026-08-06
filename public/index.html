@@ -33,7 +33,6 @@
     .timer-badge { font-size: 1.5rem; font-weight: 900; background: rgba(0,0,0,0.4); padding: 8px 18px; border-radius: 30px; display: inline-block; margin-bottom: 15px; border: 2px solid #48dbfb; color: #48dbfb; }
     .timer-badge.warning { border-color: #ff4757; color: #ff4757; animation: pulseRed 0.6s infinite alternate; }
     
-    /* HOST PERSISTENT ROOM BAR */
     #host-bar { display: none; position: fixed; bottom: 12px; left: 50%; transform: translateX(-50%); background: rgba(24, 24, 36, 0.95); border: 1px solid #feca57; color: #fff; padding: 8px 20px; border-radius: 30px; font-weight: 700; font-size: 0.95rem; box-shadow: 0 4px 15px rgba(0,0,0,0.6); z-index: 999; }
     #host-bar span { color: #feca57; letter-spacing: 2px; font-weight: 900; }
 
@@ -42,7 +41,6 @@
 </head>
 <body>
 
-  <!-- PERSISTENT HOST BAR -->
   <div id="host-bar">ROOM CODE: <span id="host-bar-code">----</span></div>
 
   <!-- MAIN MENU -->
@@ -169,7 +167,7 @@
       }
     }
 
-    /* MALE ANNOUNCER VOICE */
+    /* MALE ANNOUNCER VOICE (HOST ONLY) */
     let maleVoice = null;
     function loadMaleVoice() {
       const voices = window.speechSynthesis.getVoices();
@@ -180,6 +178,7 @@
     loadMaleVoice();
 
     function speakAnnouncer(text) {
+      if (!isHost) return; // Only host speaks
       if (!('speechSynthesis' in window)) return;
       window.speechSynthesis.cancel();
       const utter = new SpeechSynthesisUtterance(text);
@@ -206,7 +205,10 @@
       { cat: "Corporate Missteps", q: "In 2019, a corporate employee caused an office panic by accidentally emailing ____ to 2,000 colleagues.", truth: "a picture of a cat in a tie", decoys: ["their tax returns", "a resignation letter", "an invite to a brawl", "a spiderman meme"] },
       { cat: "Bizarre History", q: "In 1912, an angry landlord attempted to evict a tenant by releasing three dozen ____ into their living room.", truth: "ferrets", decoys: ["skunks", "bees", "badgers", "scorpions"] },
       { cat: "Workplace Fails", q: "A man in Ohio was fired on his first day after trying to bribe his supervisor with ____.", truth: "a half-eaten pizza", decoys: ["a fake rolex", "expired scratch-offs", "a bucket of gravel", "concert tickets"] },
-      { cat: "Odd Inventions", q: "In 1955, a patent was filed for a device designed to automatically ____.", truth: "pat children on the back", decoys: ["butter toast", "untie shoes", "comb bald spots", "salute flags"] }
+      { cat: "Odd Inventions", q: "In 1955, a patent was filed for a device designed to automatically ____.", truth: "pat children on the back", decoys: ["butter toast", "untie shoes", "comb bald spots", "salute flags"] },
+      { cat: "Deep Sea Mysteries", q: "Deep sea fishermen once recovered a sunken 18th-century chest filled entirely with waterproof packages of ____.", truth: "designer loafers", decoys: ["chewing gum", "bagpipes", "wig powder", "bowling pins"] },
+      { cat: "Feline Records", q: "In 1998, a wealthy tech executive left his entire multi-million dollar estate to a cat whose daily job was ____.", truth: "testing office chairs", decoys: ["inspecting mail", "opening blinds", "catching laser dots", "shredding paper"] },
+      { cat: "Museum Mishaps", q: "A security guard at a modern art museum was suspended after accidentally throwing away a sculpture made out of ____.", truth: "empty energy drink cans", decoys: ["cardboard boxes", "chewed bubblegum", "styrofoam cups", "used toothpicks"] }
     ];
     let pool = [];
 
@@ -233,6 +235,7 @@
         if (timeLeft <= 10) {
           el.classList.add('warning');
           playSound('tick');
+          broadcastSound('tick');
         }
         if (timeLeft <= 0) {
           clearInterval(timerInterval);
@@ -245,6 +248,10 @@
 
     function broadcastToAll(data) {
       clientConns.forEach(c => { if(c && c.open) c.send(data); });
+    }
+
+    function broadcastSound(type) {
+      broadcastToAll({ type: 'PLAY_SOUND', sound: type });
     }
 
     /* HOST LOBBY */
@@ -280,6 +287,7 @@
         if (!players.some(p => p.name === data.name)) {
           players.push({ name: data.name, score: 0, currentLie: '', currentVote: '' });
           playSound('click');
+          broadcastSound('click');
           speakAnnouncer(data.name + " has entered the room!");
         }
         renderHostLobby();
@@ -306,6 +314,7 @@
     function addBotPlayer() {
       initAudio();
       playSound('click');
+      broadcastSound('click');
       const botName = "Bot_" + (players.length + 1);
       players.push({ name: botName, score: 0, currentLie: '', currentVote: '' });
       speakAnnouncer("Added an artificial intelligence bot. Let us see if it can fool you.");
@@ -347,6 +356,7 @@
 
     function handleClientIncomingData(data) {
       if (data.type === 'SYNC_PLAYERS') players = data.players;
+      if (data.type === 'PLAY_SOUND') playSound(data.sound);
       if (data.type === 'START_Q') {
         currentQ = data.question;
         players = data.players;
@@ -369,6 +379,7 @@
     /* GAMEPLAY LOOP */
     function startFibbageGame() {
       playSound('click');
+      broadcastSound('click');
       if (isHost) document.getElementById('host-bar').style.display = 'block';
       if (players.length === 0) addBotPlayer();
       nextQuestion();
@@ -408,10 +419,14 @@
     function submitLie() {
       stopTimer();
       playSound('click');
-      let lie = document.getElementById('user-lie-input').value.trim() || currentQ.decoys[0];
+      broadcastSound('click');
+      let lieInput = document.getElementById('user-lie-input');
+      let lie = lieInput.value.trim() || currentQ.decoys[0];
       
       if (lie.toLowerCase() === currentQ.truth.toLowerCase()) {
-        lie = lie + " (Not Quite)";
+        alert("That's the right answer! Give a convincing lie instead.");
+        lieInput.value = "";
+        return;
       }
 
       document.getElementById('lie-input-container').style.display = 'none';
@@ -479,6 +494,7 @@
     function submitVote(choiceText) {
       stopTimer();
       playSound('click');
+      broadcastSound('click');
       document.getElementById('choices-container').style.display = 'none';
       document.getElementById('vote-submitted-msg').style.display = 'block';
 
@@ -504,7 +520,13 @@
         p.score += (fooled.length * 500);
       });
 
-      if (pickedTruthCount > 0) playSound('correct'); else playSound('fool');
+      if (pickedTruthCount > 0) {
+        playSound('correct');
+        broadcastSound('correct');
+      } else {
+        playSound('fool');
+        broadcastSound('fool');
+      }
 
       broadcastToAll({ type: 'START_REVEAL', players });
       setupRevealScreen();
@@ -541,6 +563,7 @@
 
     function nextRoundOrScores() {
       playSound('click');
+      broadcastSound('click');
       broadcastToAll({ type: 'START_SCORES', players });
       setupScoresScreen();
     }
