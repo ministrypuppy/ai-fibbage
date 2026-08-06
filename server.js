@@ -28,7 +28,7 @@ const fallbackLies = [
   "Faking a twin to skip work"
 ];
 
-// Massive Expanded Fibbage-Style Question Bank (Adult-oriented, non-raunchy, answers <= 20 chars)
+// Massively varied, random Fibbage question bank across totally different categories (Answers <= 20 chars)
 const fibbageQuestionBank = [
   {
     question: "In 2012, a man in New Zealand was arrested after calling emergency services to complain about ____.",
@@ -46,114 +46,64 @@ const fibbageQuestionBank = [
     houseLies: ["Captain Underpants", "Lord Voldemort", "Sir Mix-A-Lot"]
   },
   {
-    question: "In 1998, a French court ruled that employees could not be fired for ____ during work hours.",
-    answer: "having a brief affair",
-    houseLies: ["drinking wine", "napping under desks", "swearing at bosses"]
+    question: "A Japanese man legally shocked the internet by marrying a holographic pop star named ____.",
+    answer: "Hatsune Miku",
+    houseLies: ["Sailor Moon", "Pikachu", "Barbie"]
   },
   {
-    question: "To discourage drunk driving, a bar in Texas required patrons to pass a ____ test before leaving.",
+    question: "To discourage drunk driving, a quirky bar in Texas required patrons to pass a ____ test before leaving.",
     answer: "unicycle riding",
     houseLies: ["tongue twister", "line dancing", "origami"]
   },
   {
-    question: "In 2013, a man held up a bank in Chicago using a ____ as a weapon.",
-    answer: "electric toothbrush",
-    houseLies: ["frozen banana", "rubber duck", "guppy in a bag"]
-  },
-  {
-    question: "In Switzerland, it is illegal to own only one ____ because they get lonely.",
+    question: "In Switzerland, it is legally forbidden to own only one ____ because they get lonely and depressed.",
     answer: "guinea pig",
     houseLies: ["goldfish", "parrot", "hamster"]
   },
   {
-    question: "In 2015, police in Pennsylvania arrested a man for attempting to steal a ____ with a forklift.",
-    answer: "whole ATM",
-    houseLies: ["vending machine", "police cruiser", "Krispy Kreme dumpster"]
-  },
-  {
-    question: "Until 2016, it was illegal in France for women to wear ____ without riding a bicycle or horse.",
+    question: "Until 2016, it was technically illegal for women in Paris, France to wear ____ without official permission.",
     answer: "trousers",
     houseLies: ["high heels", "berets", "sunglasses"]
   },
   {
-    question: "A man in Florida was arrested after trying to pay for his McDonald's order with ____.",
-    answer: "a bag of weed",
-    houseLies: ["a live alligator", "a credit card statement", "Monopoly money"]
-  },
-  {
-    question: "In 2011, a man was banned from an all-you-can-eat buffet after eating ____ plates of food.",
-    answer: "12",
-    houseLies: ["30", "50", "88"]
-  },
-  {
-    question: "In Victoria, Australia, it was once illegal to change a lightbulb unless you were a licensed ____.",
+    question: "In Victoria, Australia, you could get fined for changing a lightbulb unless you were a licensed ____.",
     answer: "electrician",
     houseLies: ["plumber", "government agent", "magician"]
   },
   {
-    question: "In 2018, a flight had to make an emergency landing because a passenger refused to stop ____.",
-    answer: "farting",
-    houseLies: ["singing Celine Dion", "doing pushups", "climbing seat covers"]
+    question: "The tiny town of Talkeetna, Alaska famously elected a orange cat named Stubbs as their ____ for 20 years.",
+    answer: "mayor",
+    houseLies: ["sheriff", "postmaster", "lifeguard"]
   },
   {
-    question: "The town of Talkeetna, Alaska elected a ____ as its mayor for 20 years.",
-    answer: "cat",
-    houseLies: ["golden retriever", "goat", "wooden post"]
-  },
-  {
-    question: "In 2007, a man accidentally traded a 3-carat diamond ring for a ____.",
-    answer: "pepperoni pizza",
-    houseLies: ["used toaster", "pack of cigarettes", "lottery ticket"]
-  },
-  {
-    question: "A disgruntled office worker filled the company ventilation system with ____.",
+    question: "A disgruntled office worker secretly filled the company HVAC ventilation system with ____.",
     answer: "Liquid ass",
     houseLies: ["Glade spray", "fish oil", "stinky cheese"]
   },
   {
-    question: "In 2012, a man was caught trying to smuggle 18 rare iguanas through customs inside his ____.",
-    answer: "compression shorts",
-    houseLies: ["cargo pockets", "winter coat", "bowling bag"]
-  },
-  {
-    question: "What unexpected household object caused a complete evacuation at a German airport?",
+    question: "What unexpected household object caused a massive panic and terminal evacuation at a German airport?",
     answer: "A frozen turkey",
     houseLies: ["An alarm clock", "A pressure cooker", "A blender"]
   },
   {
-    question: "A Florida man attempted to rob a convenience store wielding a live ____ as a weapon.",
-    answer: "Alligator",
-    houseLies: ["Rattlesnake", "Opossum", "Snapping turtle"]
-  },
-  {
-    question: "In 1995, a clever bank robber used ____ to completely blind the security cameras.",
+    question: "In 1995, a clever bank robber used jars of ____ to completely blind the security surveillance cameras.",
     answer: "lemon juice",
     houseLies: ["hairspray", "Vaseline", "silly string"]
   },
   {
-    question: "A bizarre 18th-century medical trend involved blowing tobacco smoke up patients' ____.",
+    question: "A bizarre 18th-century medical trend involved blowing warm tobacco smoke directly up patients' ____.",
     answer: "rectums",
     houseLies: ["noses", "ears", "mouths"]
   },
   {
-    question: "What unusual material did prison inmates use to successfully scale a 20-foot facility wall?",
+    question: "What unusual material did prison inmates use to successfully scale a 20-foot high maximum security wall?",
     answer: "Dental floss",
     houseLies: ["Bed sheets", "Shoelaces", "Towel strips"]
   },
   {
-    question: "A museum in Iceland famously houses a massive collection of preserved specimens from various ____.",
+    question: "A bizarre museum in Iceland famously houses a massive collection of preserved specimens from various ____.",
     answer: "mammals",
     houseLies: ["deep sea fish", "reptiles", "insects"]
-  },
-  {
-    question: "In 2004, a man drove a heavily modified armored bulldozer through a Colorado town to destroy ____.",
-    answer: "Town hall",
-    houseLies: ["The bank", "A rival business", "Police headquarters"]
-  },
-  {
-    question: "A burglar fell asleep on his victim's couch and was woken up by police holding a bag of ____.",
-    answer: "Doritos",
-    houseLies: ["Pretzels", "Gummies", "Popcorn"]
   }
 ];
 
