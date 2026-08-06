@@ -33,12 +33,14 @@
     .truth { border: 2px solid #1dd1a1; }
     .timer-badge { font-size: 1.5rem; font-weight: 900; background: rgba(0,0,0,0.4); padding: 8px 18px; border-radius: 30px; display: inline-block; margin-bottom: 15px; border: 2px solid #48dbfb; color: #48dbfb; }
     .timer-badge.warning { border-color: #ff4757; color: #ff4757; animation: pulseRed 0.6s infinite alternate; }
+    .screen.blink-red { animation: screenBlink 0.6s infinite alternate; }
     .round-badge { background: #feca57; color: #1e1e2f; font-weight: 800; padding: 4px 12px; border-radius: 8px; font-size: 0.85rem; display: inline-block; margin-bottom: 10px; }
     
     #host-bar { display: none; position: fixed; bottom: 12px; left: 50%; transform: translateX(-50%); background: rgba(24, 24, 36, 0.95); border: 1px solid #feca57; color: #fff; padding: 8px 20px; border-radius: 30px; font-weight: 700; font-size: 0.95rem; box-shadow: 0 4px 15px rgba(0,0,0,0.6); z-index: 999; }
     #host-bar span { color: #feca57; letter-spacing: 2px; font-weight: 900; }
 
     @keyframes pulseRed { from { transform: scale(1); } to { transform: scale(1.1); } }
+    @keyframes screenBlink { from { background-color: rgba(255, 71, 87, 0.0); } to { background-color: rgba(255, 71, 87, 0.18); } }
   </style>
 </head>
 <body>
@@ -211,11 +213,12 @@
       musicType = 'none';
     }
 
-    /* NATURAL WITTY MALE ANNOUNCER VOICE (HOST ONLY) */
+    /* NATURAL MALE ANNOUNCER VOICE WITH HUMOROUS CADENCE */
     let maleVoice = null;
     function loadMaleVoice() {
       const voices = window.speechSynthesis.getVoices();
-      maleVoice = voices.find(v => v.lang.startsWith('en') && (v.name.includes('Natural') || v.name.includes('Google') || v.name.includes('Microsoft David') || v.name.includes('Ryan') || v.name.includes('Oliver'))) ||
+      // Prioritize natural sounding high-quality English male voices
+      maleVoice = voices.find(v => v.lang.startsWith('en') && (v.name.includes('Google US English') || v.name.includes('Microsoft Oliver') || v.name.includes('Ryan') || v.name.includes('David') || v.name.includes('Natural') || v.name.includes('Male'))) ||
                   voices.find(v => v.lang.startsWith('en')) || null;
     }
     window.speechSynthesis.onvoiceschanged = loadMaleVoice;
@@ -227,8 +230,8 @@
       window.speechSynthesis.cancel();
       const utter = new SpeechSynthesisUtterance(text);
       if (maleVoice) utter.voice = maleVoice;
-      utter.pitch = 0.85;
-      utter.rate = 1.05;
+      utter.pitch = 0.9;  // Slightly lower, richer male pitch
+      utter.rate = 1.02;  // Natural conversational tempo
       window.speechSynthesis.speak(utter);
     }
 
@@ -238,58 +241,77 @@
     let myName = '';
     let players = [];
     let currentQ = null;
-    let currentQuestionIndex = 0; // 0 to 5 (6 questions total)
+    let currentQuestionIndex = 0; 
     let timerInterval = null;
     
     let peer = null;
     let hostConn = null;
     let clientConns = [];
 
-    /* INFINITE PROCEDURAL QUESTION GENERATOR (NO REPEATS) */
-    const categoriesList = ["Weird Laws", "Bizarre Crimes", "Unusual Auctions", "Animal Antics", "Local Ohio Lore", "Storefront Surprises", "Highway Hijinks", "Museum Mishaps"];
-    
-    const nounPool = [
-      "a stolen grandfather clock", "a live emotional support raccoon", "three gallons of expired gravy", "a golden toilet plunger", 
-      "a stolen inflatable gorilla", "a crate of vintage mannequin hands", "a motorized shopping cart", "a taxidermied badger wearing goggles",
-      "a bucket of wet cement", "a suspiciously heavy hollow log", "a bag of acoustic foam tiles", "a medieval broadsword",
-      "a custom neon sign saying 'No'", "a massive jar of pickled quail eggs", "a 90s karaoke machine", "a bowling ball collection"
+    /* INFINITE PROCEDURAL QUESTION GENERATOR (ABSOLUTELY NO REPEATS) */
+    const categoryPool = [
+      "Weird Laws", "Bizarre Crimes", "Unusual Auctions", "Animal Antics", 
+      "Local Ohio Lore", "Storefront Surprises", "Highway Hijinks", "Museum Mishaps",
+      "Corporate Conundrums", "Florida Man Archives", "Kitchen Disasters", "Tech Support Nightmares"
     ];
 
-    const templatePool = [
-      { q: "During a routine traffic stop, police were stunned to find the trunk entirely filled with ____.", type: "object" },
-      { q: "A local city council meeting erupted into chaos when a citizen stood up and brandished ____.", type: "object" },
-      { q: "An online marketplace seller was arrested after trying to fence ____.", type: "object" },
-      { q: "Museum security chased down a visitor who attempted to smuggle out ____ hidden inside a winter coat.", type: "object" },
-      { q: "Health inspectors shut down a festival booth after discovering they were using ____ as a secret ingredient.", type: "object" }
+    const actorPool = [
+      "a confused accountant", "an overly confident barista", "a guy wearing swim trunks in December", 
+      "a local librarian with a dark past", "an aspiring TikTok influencer", "a retired master plumber",
+      "a guy who takes board games way too seriously", "an undercover mall cop", "a guy trying to return a fish to Petco",
+      "a rogue delivery driver", "a guy who insists he's a crypto expert", "a sleep-deprived dad of three"
     ];
 
-    const usedQuestionsSignatures = new Set();
+    const actionPool = [
+      "attempted to fence a stolen", "tried to bribe a parking attendant with", "was pulled over while trying to balance",
+      "got stuck in a ventilation shaft trying to recover", "caused an emergency evacuation over", "was banned from a buffet for hoarding",
+      "tried to trade a car for", "built an entire backyard shed out of", "got arrested at a bank drive-thru carrying"
+    ];
+
+    const objectPool = [
+      "a live emotional support raccoon", "three gallons of expired gravy", "a golden toilet plunger", 
+      "a stolen inflatable gorilla", "a crate of vintage mannequin hands", "a motorized shopping cart", 
+      "a taxidermied badger wearing custom goggles", "a bucket of wet cement", "a suspiciously heavy hollow log", 
+      "a bag of acoustic foam tiles", "a medieval broadsword", "a custom neon sign saying 'No'", 
+      "a massive jar of pickled quail eggs", "a 90s karaoke machine", "a bowling ball collection",
+      "a remarkably lifelike statue of Danny DeVito", "a frozen turkey shaped like Abraham Lincoln",
+      "a crate of 500 novelty whoopie cushions", "a bag full of antique door knobs"
+    ];
+
+    const usedSignatures = new Set();
 
     function generateUniqueQuestion() {
       let attempts = 0;
-      while (attempts < 100) {
-        const cat = categoriesList[Math.floor(Math.random() * categoriesList.length)];
-        const temp = templatePool[Math.floor(Math.random() * templatePool.length)];
-        const truth = nounPool[Math.floor(Math.random() * nounPool.length)];
-        
-        // Pick 3 unique random decoys from the noun pool excluding the truth
-        let availableDecoys = nounPool.filter(n => n !== truth);
-        availableDecoys.sort(() => Math.random() - 0.5);
-        let decoys = availableDecoys.slice(0, 3);
+      while (attempts < 500) {
+        const cat = categoryPool[Math.floor(Math.random() * categoryPool.length)];
+        const actor = actorPool[Math.floor(Math.random() * actorPool.length)];
+        const action = actionPool[Math.floor(Math.random() * actionPool.length)];
+        const truth = objectPool[Math.floor(Math.random() * objectPool.length)];
 
-        const signature = temp.q + "|" + truth;
-        if (!usedQuestionsSignatures.has(signature)) {
-          usedQuestionsSignatures.add(signature);
-          return { cat, q: temp.q, truth, decoys };
+        // Formulate a unique dynamic sentence template
+        const qText = `Police logs revealed that ${actor} ${action} ____.`;
+        const signature = qText + "|" + truth;
+
+        if (!usedSignatures.has(signature)) {
+          usedSignatures.add(signature);
+          
+          // Generate 3 unique decoys
+          let availableDecoys = objectPool.filter(o => o !== truth);
+          availableDecoys.sort(() => Math.random() - 0.5);
+          let decoys = availableDecoys.slice(0, 3);
+
+          return { cat, q: qText, truth, decoys };
         }
         attempts++;
       }
-      // Fallback if signature space exhausted
+      
+      // Infinite fallback fallback signature modifier if space is saturated
+      const fallbackTruth = "a vintage disco ball filled with soup " + Math.random();
       return {
-        cat: "Random Oddities",
-        q: "Custom investigators discovered a hidden room completely packed with ____.",
-        truth: "a pile of rubber ducks",
-        decoys: ["old telephone books", "cardboard cutouts of Nicolas Cage", "broken toaster ovens"]
+        cat: "Infinite Anomalies",
+        q: "Witnesses reported seeing a local resident proudly carrying ____ down Main Street.",
+        truth: fallbackTruth,
+        decoys: ["a suspiciously heavy suitcase", "an acoustic guitar with no strings", "a remarkably large cheese wheel"]
       };
     }
 
@@ -304,23 +326,29 @@
       const el = document.getElementById(elementId);
       el.classList.remove('warning');
       el.innerText = timeLeft;
+      document.body.classList.remove('blink-red');
 
       timerInterval = setInterval(() => {
         timeLeft--;
         el.innerText = timeLeft;
         if (timeLeft <= 10) {
           el.classList.add('warning');
+          document.body.classList.add('blink-red');
           playSound('tick');
           broadcastSound('tick');
         }
         if (timeLeft <= 0) {
           clearInterval(timerInterval);
+          document.body.classList.remove('blink-red');
           if (onComplete) onComplete();
         }
       }, 1000);
     }
 
-    function stopTimer() { clearInterval(timerInterval); }
+    function stopTimer() { 
+      clearInterval(timerInterval); 
+      document.body.classList.remove('blink-red');
+    }
 
     function broadcastToAll(data) {
       clientConns.forEach(c => { if(c && c.open) c.send(data); });
@@ -339,7 +367,7 @@
       players = [];
       clientConns = [];
       currentQuestionIndex = 0;
-      usedQuestionsSignatures.clear();
+      usedSignatures.clear();
 
       document.getElementById('host-code-display').innerText = roomCode;
       document.getElementById('host-bar-code').innerText = roomCode;
@@ -502,7 +530,7 @@
         roundText = "ROUND 2";
         multiplierText = "2x Points";
       } else if (currentQuestionIndex === 5) {
-        roundText = "FINAL FIBBAGE (ROUND 3)";
+        roundText = "FINAL ROUND";
         multiplierText = "3x Points";
       }
 
@@ -514,7 +542,7 @@
       document.getElementById('user-lie-input').value = '';
 
       if (currentQuestionIndex === 5) {
-        speakAnnouncer("Final Fibbage. Points are tripled. Do not choke now.");
+        speakAnnouncer("Final Round. Points are tripled. Do not choke now.");
       } else {
         speakAnnouncer("Category: " + currentQ.cat + ". Write your lie.");
       }
@@ -622,10 +650,6 @@
       stopTimer();
       stopBackgroundMusic();
       
-      // Determine point multiplier based on question index
-      // Q 0-2 (Round 1) = 1x
-      // Q 3-4 (Round 2) = 2x
-      // Q 5 (Round 3 / Final Fibbage) = 3x
       let multiplier = 1;
       if (currentQuestionIndex >= 3 && currentQuestionIndex <= 4) multiplier = 2;
       if (currentQuestionIndex === 5) multiplier = 3;
