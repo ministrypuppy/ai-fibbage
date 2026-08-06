@@ -7,9 +7,23 @@
   <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
-    body { background: linear-gradient(135deg, #181824, #28283d); color: #fff; min-height: 100vh; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 20px; padding-bottom: 70px; transition: background 0.5s ease; }
+    body { background: linear-gradient(135deg, #181824, #28283d); color: #fff; min-height: 100vh; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 20px; padding-bottom: 70px; transition: background 0.5s ease; position: relative; }
     body.final-round { background: linear-gradient(135deg, #2a0808, #4a1515); }
-    .screen { display: none; background: rgba(255, 255, 255, 0.05); backdrop-filter: blur(12px); border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 20px; padding: 30px; width: 100%; max-width: 520px; text-align: center; box-shadow: 0 15px 35px rgba(0,0,0,0.5); }
+    
+    /* SCREEN EDGE FLASH ANIMATION FOR LAST 10 SECONDS */
+    body.edge-flash::after {
+      content: '';
+      position: fixed;
+      top: 0; left: 0; right: 0; bottom: 0;
+      border: 6px solid rgba(255, 71, 87, 0.6);
+      pointer-events: none;
+      box-shadow: inset 0 0 30px rgba(255, 71, 87, 0.4);
+      animation: edgeFlashAnim 0.6s infinite alternate;
+      z-index: 998;
+    }
+    @keyframes edgeFlashAnim { from { opacity: 0.3; } to { opacity: 1.0; } }
+
+    .screen { display: none; background: rgba(255, 255, 255, 0.05); backdrop-filter: blur(12px); border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 20px; padding: 30px; width: 100%; max-width: 520px; text-align: center; box-shadow: 0 15px 35px rgba(0,0,0,0.5); z-index: 2; }
     .screen.active { display: block; }
     h1 { font-size: 2.5rem; font-weight: 800; background: linear-gradient(45deg, #ff6b6b, #feca57, #48dbfb, #ff9ff3); -webkit-background-clip: text; -webkit-text-fill-color: transparent; margin-bottom: 5px; }
     .subtitle { color: #a0a0c0; font-size: 0.95rem; margin-bottom: 25px; }
@@ -34,21 +48,24 @@
     .truth { border: 2px solid #1dd1a1; }
     .timer-badge { font-size: 1.5rem; font-weight: 900; background: rgba(0,0,0,0.4); padding: 8px 18px; border-radius: 30px; display: inline-block; margin-bottom: 15px; border: 2px solid #48dbfb; color: #48dbfb; }
     .timer-badge.warning { border-color: #ff4757; color: #ff4757; animation: pulseRed 0.6s infinite alternate; }
-    .screen.blink-red { animation: screenBlink 0.6s infinite alternate; }
     .round-badge { background: #feca57; color: #1e1e2f; font-weight: 800; padding: 4px 12px; border-radius: 8px; font-size: 0.85rem; display: inline-block; margin-bottom: 10px; }
     
     #global-control-bar { display: none; position: fixed; bottom: 12px; left: 50%; transform: translateX(-50%); background: rgba(24, 24, 36, 0.95); border: 1px solid #feca57; color: #fff; padding: 8px 20px; border-radius: 30px; font-weight: 700; font-size: 0.95rem; box-shadow: 0 4px 15px rgba(0,0,0,0.6); z-index: 999; align-items: center; gap: 15px; }
     #global-control-bar span { color: #feca57; letter-spacing: 2px; font-weight: 900; }
 
+    /* PERMANENT HOST WATERMARK FOOTER */
+    #host-watermark-footer { display: none; position: fixed; bottom: 8px; left: 15px; background: rgba(0,0,0,0.6); border: 1px solid rgba(254, 202, 87, 0.4); padding: 4px 12px; border-radius: 8px; font-size: 0.8rem; font-weight: 700; color: #feca57; letter-spacing: 1px; z-index: 9999; pointer-events: none; }
+
     @keyframes pulseRed { from { transform: scale(1); } to { transform: scale(1.1); } }
-    @keyframes screenBlink { from { background-color: rgba(255, 71, 87, 0.0); } to { background-color: rgba(255, 71, 87, 0.18); } }
   </style>
 </head>
 <body>
 
+  <!-- PERMANENT HOST ROOM CODE FOOTER -->
+  <div id="host-watermark-footer">ROOM CODE: <span id="watermark-room-code">----</span></div>
+
   <!-- GLOBAL CONTROL BAR (Visible for Host & Connected Players between questions) -->
   <div id="global-control-bar">
-    <div id="host-code-container" style="display:none;">ROOM CODE: <span id="bar-room-code">----</span></div>
     <button id="pause-game-btn" class="btn btn-pause" style="margin:0; padding:4px 12px; font-size:0.85rem;" onclick="togglePauseGame()">Pause Game</button>
   </div>
 
@@ -124,16 +141,32 @@
   <!-- STAGE 3: REVEAL -->
   <div id="screen-reveal" class="screen">
     <h2>The Truth Unveiled</h2>
-    <p class="subtitle">Next screen in: <span id="reveal-timer" style="font-weight:900; color:#feca57;">10</span>s</p>
     <div id="reveal-container"></div>
+    <!-- CONTINUE BUTTON FOR REVEAL -->
+    <div id="reveal-continue-container" style="margin-top: 20px;">
+      <button id="reveal-continue-btn" class="btn btn-host" onclick="sendContinueSignal()">Continue</button>
+      <p class="subtitle" id="reveal-continue-status" style="margin-top: 8px; font-size:0.85rem;">Waiting for players to continue... (0/0)</p>
+    </div>
   </div>
 
   <!-- STAGE 4: SCORES -->
   <div id="screen-scores" class="screen">
     <h2>Leaderboard</h2>
-    <p class="subtitle">Next question in: <span id="score-timer" style="font-weight:900; color:#feca57;">10</span>s</p>
     <div id="leaderboard-container" style="margin:20px 0;"></div>
-    <div id="host-end-options" style="display:none; flex-direction: column; gap: 10px;">
+    
+    <!-- CONTINUE BUTTON FOR SCORES -->
+    <div id="score-continue-container" style="margin-top: 20px;">
+      <button id="score-continue-btn" class="btn btn-host" onclick="sendContinueSignal()">Continue to Next Question</button>
+      <p class="subtitle" id="score-continue-status" style="margin-top: 8px; font-size:0.85rem;">Waiting for players to continue... (0/0)</p>
+    </div>
+
+    <!-- WIN TALLY DISPLAY (Persistent Roster Tally) -->
+    <div id="win-tally-box" style="margin-top: 15px; background: rgba(0,0,0,0.3); padding: 12px; border-radius: 10px; display: none; text-align: left;">
+      <p style="font-weight: 700; color: #feca57; margin-bottom: 6px; font-size: 0.9rem;">Series Lifetime Win Tally:</p>
+      <div id="win-tally-list" style="display: flex; flex-direction: column; gap: 4px; font-size: 0.85rem;"></div>
+    </div>
+
+    <div id="host-end-options" style="display:none; flex-direction: column; gap: 10px; margin-top:15px;">
       <button class="btn btn-host" onclick="restartSamePlayers()">Play Again - Same Players</button>
       <button class="btn btn-join" onclick="restartNewPlayers()">Play Again - New Players</button>
     </div>
@@ -148,7 +181,7 @@
 
     function initAudio() { if (!actx) actx = new AudioCtx(); }
 
-    function playSound(type) {
+    function playSound(type, isLouder = false) {
       initAudio();
       if (!actx) return;
       const now = actx.currentTime;
@@ -157,18 +190,22 @@
       osc.connect(gain);
       gain.connect(actx.destination);
 
+      let volumeMultiplier = isLouder ? 2.2 : 1.0;
+
       if (type === 'click') {
         osc.frequency.setValueAtTime(400, now);
         osc.frequency.exponentialRampToValueAtTime(800, now + 0.08);
-        gain.gain.setValueAtTime(0.15, now);
+        gain.gain.setValueAtTime(0.15 * volumeMultiplier, now);
         gain.gain.exponentialRampToValueAtTime(0.01, now + 0.08);
         osc.start(now); osc.stop(now + 0.08);
       } else if (type === 'tick') {
         osc.type = 'triangle';
         osc.frequency.setValueAtTime(1000, now);
-        gain.gain.setValueAtTime(0.05, now);
-        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.04);
-        osc.start(now); osc.stop(now + 0.04);
+        // Louder ticking sound for the final 10 seconds
+        let tickGain = isLouder ? 0.18 : 0.05;
+        gain.gain.setValueAtTime(tickGain, now);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.05);
+        osc.start(now); osc.stop(now + 0.05);
       } else if (type === 'correct') {
         osc.type = 'sine';
         osc.frequency.setValueAtTime(523.25, now);
@@ -297,7 +334,7 @@
       window.speechSynthesis.speak(utter);
     }
 
-    /* GAME STATE */
+    /* GAME STATE & PERSISTENT STATS */
     let isHost = false;
     let isPaused = false;
     let roomCode = '';
@@ -306,12 +343,18 @@
     let currentQ = null;
     let currentQuestionIndex = 0; 
     let timerInterval = null;
-    let transitionTimerInterval = null;
     let timeLeft = 45;
     
     let peer = null;
     let hostConn = null;
     let clientConns = [];
+
+    // CONTINUE GATHERING STATE
+    let continuePlayers = new Set();
+
+    // SERIES WIN TALLY TRACKING
+    let previousRosterNames = [];
+    let seriesWinTally = {}; // { playerName: winCount }
 
     /* PROCEDURAL QUESTION GENERATOR (Truths strictly <= 20 characters) */
     const categoryPool = [
@@ -386,6 +429,16 @@
       document.getElementById(id).classList.add('active');
     }
 
+    function updateHostWatermarkVisibility() {
+      const watermark = document.getElementById('host-watermark-footer');
+      if (isHost && roomCode) {
+        watermark.style.display = 'block';
+        document.getElementById('watermark-room-code').innerText = roomCode;
+      } else {
+        watermark.style.display = 'none';
+      }
+    }
+
     function startTimer(elementId, onComplete) {
       clearInterval(timerInterval);
       timeLeft = 45;
@@ -394,21 +447,23 @@
       const el = document.getElementById(elementId);
       el.classList.remove('warning');
       el.innerText = timeLeft;
-      document.body.classList.remove('blink-red');
+      document.body.classList.remove('edge-flash');
 
       timerInterval = setInterval(() => {
         if (isPaused) return;
         timeLeft--;
         el.innerText = timeLeft;
+        
         if (timeLeft <= 10) {
           el.classList.add('warning');
-          document.body.classList.add('blink-red');
-          playSound('tick');
-          broadcastSound('tick');
+          document.body.classList.add('edge-flash'); // Light red flashing animation on screen edges
+          playSound('tick', true); // Louder ticking in final 10 seconds
+          broadcastSound('tick', true);
         }
+
         if (timeLeft <= 0) {
           clearInterval(timerInterval);
-          document.body.classList.remove('blink-red');
+          document.body.classList.remove('edge-flash');
           if (onComplete) onComplete();
         }
       }, 1000);
@@ -416,7 +471,7 @@
 
     function stopTimer() { 
       clearInterval(timerInterval); 
-      document.body.classList.remove('blink-red');
+      document.body.classList.remove('edge-flash');
     }
 
     function togglePauseGame() {
@@ -441,15 +496,10 @@
       }
     }
 
-    function setGlobalControlBarVisible(visible, showRoomCode = false) {
+    function setGlobalControlBarVisible(visible) {
       const bar = document.getElementById('global-control-bar');
-      const codeContainer = document.getElementById('host-code-container');
       if (visible) {
         bar.style.display = 'flex';
-        codeContainer.style.display = showRoomCode ? 'block' : 'none';
-        if (showRoomCode) {
-          document.getElementById('bar-room-code').innerText = roomCode;
-        }
       } else {
         bar.style.display = 'none';
       }
@@ -459,8 +509,8 @@
       clientConns.forEach(c => { if(c && c.open) c.send(data); });
     }
 
-    function broadcastSound(type) {
-      broadcastToAll({ type: 'PLAY_SOUND', sound: type });
+    function broadcastSound(type, isLouder = false) {
+      broadcastToAll({ type: 'PLAY_SOUND', sound: type, isLouder });
     }
 
     /* HOST LOBBY */
@@ -474,6 +524,7 @@
       currentQuestionIndex = 0;
       usedSignatures.clear();
 
+      updateHostWatermarkVisibility();
       document.getElementById('host-code-display').innerText = roomCode;
       document.getElementById('host-end-options').style.display = 'none';
 
@@ -522,6 +573,9 @@
         updatePauseButtonUI();
         broadcastToAll({ type: 'TOGGLE_PAUSE', isPaused });
       }
+      if (data.type === 'CONTINUE_REQ') {
+        handleContinueVote(data.name);
+      }
     }
 
     function updateHostSubmissionTracker() {
@@ -556,6 +610,7 @@
       initAudio();
       playSound('click');
       isHost = false;
+      updateHostWatermarkVisibility();
       showScreen('screen-join');
     }
 
@@ -585,7 +640,7 @@
 
     function handleClientIncomingData(data) {
       if (data.type === 'SYNC_PLAYERS') players = data.players;
-      if (data.type === 'PLAY_SOUND') playSound(data.sound);
+      if (data.type === 'PLAY_SOUND') playSound(data.sound, data.isLouder);
       if (data.type === 'TOGGLE_PAUSE') {
         isPaused = data.isPaused;
         updatePauseButtonUI();
@@ -612,6 +667,9 @@
         players = data.players;
         setupScoresScreen();
       }
+      if (data.type === 'UPDATE_CONTINUE_COUNT') {
+        updateContinueUI(data.count, data.total);
+      }
     }
 
     /* GAMEPLAY LOOP & ROUND STRUCTURE */
@@ -626,10 +684,7 @@
     function nextQuestion() {
       setGlobalControlBarVisible(false);
       if (currentQuestionIndex >= 6) {
-        const sorted = [...players].sort((a,b) => b.score - a.score);
-        const leader = sorted.length > 0 ? sorted[0].name : "Nobody";
-        speakAnnouncer("", 'gameover', leader);
-        showScreen('screen-scores');
+        processGameOverSequence();
         return;
       }
 
@@ -690,7 +745,6 @@
 
       startTimer('timer-lie', () => {
         if (!isHost && document.getElementById('lie-input-container').style.display !== 'none') {
-          // Assign unique fallback or decoy to active player who timed out
           assignTimeoutLieForMe();
           submitLie();
         } else if (isHost) {
@@ -702,7 +756,6 @@
 
     function assignTimeoutLieForMe() {
       let pool = [...fallbackLies, ...currentQ.decoys].sort(() => Math.random() - 0.5);
-      // Find a unique one not taken by anyone else
       let chosen = pool.find(item => !players.some(p => p.currentLie === item)) || pool[0];
       document.getElementById('user-lie-input').value = chosen;
     }
@@ -752,7 +805,7 @@
 
     function startVotingStage() {
       stopTimer();
-      fillTimeoutLies(); // Ensure everyone has a unique lie ready
+      fillTimeoutLies();
 
       let choices = [];
       players.forEach(p => {
@@ -857,6 +910,11 @@
         speakAnnouncer("", 'truth_fail', currentQ.truth);
       }
 
+      // Reset continue voting tally for Reveal stage
+      continuePlayers.clear();
+      // Automatically vote for bots so they don't block progress
+      players.filter(p => p.name.startsWith('Bot_')).forEach(b => continuePlayers.add(b.name));
+
       broadcastToAll({ type: 'START_REVEAL', players });
       setupRevealScreen();
     }
@@ -887,32 +945,88 @@
 
       container.innerHTML = html;
 
-      // Enable the pause/control bar between questions (Reveal & Scoreboard)
-      setGlobalControlBarVisible(true, isHost);
+      // Enable the global control bar / pause bar between questions
+      setGlobalControlBarVisible(true);
       isPaused = false;
       updatePauseButtonUI();
 
-      // 10 second timer for Reveal screen before proceeding to Scoreboard
-      clearInterval(transitionTimerInterval);
-      let revealSecondsLeft = 10;
-      document.getElementById('reveal-timer').innerText = revealSecondsLeft;
-      
-      transitionTimerInterval = setInterval(() => {
-        if (isPaused) return;
-        revealSecondsLeft--;
-        const timerEl = document.getElementById('reveal-timer');
-        if(timerEl) timerEl.innerText = revealSecondsLeft;
-        if (revealSecondsLeft <= 0) {
-          clearInterval(transitionTimerInterval);
+      // Reset Continue button state
+      const continueBtn = document.getElementById('reveal-continue-btn');
+      continueBtn.disabled = false;
+      continueBtn.innerText = "Continue";
+      updateContinueUI(continuePlayers.size, players.length);
+    }
+
+    function sendContinueSignal() {
+      playSound('click');
+      const btn = isHost ? document.getElementById('reveal-continue-btn') : document.getElementById('reveal-continue-btn'); // handles active screen button
+      // Disable local button to prevent double-clicking
+      if (isHost) {
+        handleContinueVote(myName);
+      } else {
+        hostConn.send({ type: 'CONTINUE_REQ', name: myName });
+      }
+    }
+
+    function handleContinueVote(playerName) {
+      continuePlayers.add(playerName);
+      updateContinueUI(continuePlayers.size, players.length);
+      broadcastToAll({ type: 'UPDATE_CONTINUE_COUNT', count: continuePlayers.size, total: players.length });
+
+      if (continuePlayers.size >= players.length) {
+        // All players ready, advance state!
+        const activeScreen = document.querySelector('.screen.active').id;
+        if (activeScreen === 'screen-reveal') {
           moveToScoresScreen();
+        } else if (activeScreen === 'screen-scores') {
+          currentQuestionIndex++;
+          nextQuestion();
         }
-      }, 1000);
+      }
+    }
+
+    function updateContinueUI(count, total) {
+      const statusText = `Waiting for players to continue... (${count}/${total})`;
+      const revStatus = document.getElementById('reveal-continue-status');
+      const scoreStatus = document.getElementById('score-continue-status');
+      if (revStatus) revStatus.innerText = statusText;
+      if (scoreStatus) scoreStatus.innerText = statusText;
     }
 
     function moveToScoresScreen() {
-      clearInterval(transitionTimerInterval);
       playSound('click');
+      // Reset continue tally for Scoreboard stage
+      continuePlayers.clear();
+      players.filter(p => p.name.startsWith('Bot_')).forEach(b => continuePlayers.add(b.name));
+
       broadcastToAll({ type: 'START_SCORES', players });
+      setupScoresScreen();
+    }
+
+    function processGameOverSequence() {
+      // Determine winner(s) and update series win tally
+      const sorted = [...players].sort((a,b) => b.score - a.score);
+      if (sorted.length > 0) {
+        const topScore = sorted[0].score;
+        const winners = sorted.filter(p => p.score === topScore);
+        
+        // Check if roster matches previous game roster
+        const currentRosterNames = players.map(p => p.name).sort();
+        const isSameRoster = 
+          previousRosterNames.length === currentRosterNames.length && 
+          previousRosterNames.every((val, idx) => val === currentRosterNames[idx]);
+
+        if (!isSameRoster) {
+          seriesWinTally = {};
+          previousRosterNames = [...currentRosterNames];
+        }
+
+        winners.forEach(w => {
+          seriesWinTally[w.name] = (seriesWinTally[w.name] || 0) + 1;
+        });
+
+        speakAnnouncer("", 'gameover', winners.map(w => w.name).join(' and '));
+      }
       setupScoresScreen();
     }
 
@@ -921,11 +1035,11 @@
       const container = document.getElementById('leaderboard-container');
       const sorted = [...players].sort((a,b) => b.score - a.score);
 
-      if (sorted.length > 0) {
+      if (currentQuestionIndex < 6 && sorted.length > 0) {
         speakAnnouncer("", 'leaderboard', sorted[0].name);
       }
 
-      const isGameOver = (currentQuestionIndex >= 5);
+      const isGameOver = (currentQuestionIndex >= 6);
 
       container.innerHTML = sorted.map((p, i) => `
         <div class="reveal-card" style="display:flex; justify-content:space-between; align-items:center;">
@@ -934,33 +1048,33 @@
         </div>
       `).join('');
 
+      // Render Series Win Tally if applicable
+      const tallyBox = document.getElementById('win-tally-box');
+      const tallyList = document.getElementById('win-tally-list');
+      if (Object.keys(seriesWinTally).length > 0) {
+        tallyBox.style.display = 'block';
+        tallyList.innerHTML = Object.entries(seriesWinTally)
+          .sort((a, b) => b[1] - a[1])
+          .map(([name, wins]) => `<div style="display:flex; justify-content:space-between;"><span>${name}:</span><span style="color:#feca57; font-weight:700;">${wins} win(s)</span></div>`)
+          .join('');
+      } else {
+        tallyBox.style.display = 'none';
+      }
+
+      const continueContainer = document.getElementById('score-continue-container');
       const endOptions = document.getElementById('host-end-options');
 
       if (isGameOver) {
-        setGlobalControlBarVisible(false); // Hide pause bar at final game over
+        setGlobalControlBarVisible(false); // Hide control bar on final game over
+        continueContainer.style.display = 'none';
         endOptions.style.display = isHost ? 'flex' : 'none';
       } else {
         endOptions.style.display = 'none';
-        setGlobalControlBarVisible(true, isHost);
+        continueContainer.style.display = 'block';
+        setGlobalControlBarVisible(true);
         isPaused = false;
         updatePauseButtonUI();
-
-        // 10 second timer on Scoreboard screen before next question
-        clearInterval(transitionTimerInterval);
-        let scoreSecondsLeft = 10;
-        const scoreTimerEl = document.getElementById('score-timer');
-        if(scoreTimerEl) scoreTimerEl.innerText = scoreSecondsLeft;
-
-        transitionTimerInterval = setInterval(() => {
-          if (isPaused) return;
-          scoreSecondsLeft--;
-          if(scoreTimerEl) scoreTimerEl.innerText = scoreSecondsLeft;
-          if (scoreSecondsLeft <= 0) {
-            clearInterval(transitionTimerInterval);
-            currentQuestionIndex++;
-            nextQuestion();
-          }
-        }, 1000);
+        updateContinueUI(continuePlayers.size, players.length);
       }
     }
 
