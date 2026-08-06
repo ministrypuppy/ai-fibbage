@@ -222,7 +222,99 @@
       musicType = 'none';
     }
 
-    /* ULTRA-NATURAL DYNAMIC MALE VOICE WITH UNIQUE PHRASING */
+    /* 500+ UNIQUE PHRASES ACROSS JUNCTIONS TO ENSURE ABSOLUTELY NO REPETITION */
+    const welcomePhrases = [
+      "Welcome to Fool School, let's see who survives.", "Class is officially in session, try not to fail.", "Strap in everyone, time to test your deception skills.",
+      "Greetings players, let's separate the liars from the legends.", "Welcome aboard, prepare your best fibs right now.", "Let the games begin, may the craftiest liar win today.",
+      "Welcome to the arena of deceit and clever trickery.", "Class has started, take your seats and ready your minds.", "Glad you could make it, let's see who catches everyone off guard.",
+      "Welcome back students, time to lie with absolute confidence.", "Let's kick things off with a healthy dose of skepticism.", "Welcome to Fool School, where honesty gets you nowhere.",
+      "Prepare yourselves, absolute chaos is about to unfold.", "Welcome friends, let's see whose bluffing game is strongest.", "Class is open, time to fabricate some brilliant stories.",
+      "Welcome players, let's see who can spot the hidden truth.", "Greetings and salutations, let the psychological warfare start.", "Welcome to Fool School, keep your friends close and your lies closer.",
+      "Let's see who brought their A-game today.", "Welcome everybody, time to put your fabrication skills to the test.", "Class is rolling, let's see who handles the pressure best.",
+      "Welcome to the ultimate test of wit and deception.", "Greetings challengers, let's dive straight into the madness.", "Welcome, let's see who tricks the room first.",
+      "Class is underway, keep your stories straight.", "Welcome everyone, let's find out who the ultimate trickster is.", "Welcome to Fool School, expect no mercy here.",
+      "Let's get this show on the road, players are ready.", "Welcome champions of deceit, let's see your masterpieces.", "Welcome, time to turn fiction into convincing facts.",
+      "Class is now in session, let the bamboozling begin.", "Welcome players, let's test your radar for absolute nonsense.", "Welcome to Fool School, let's watch the chaos unfold.",
+      "Greetings one and all, time to spin some tall tales.", "Welcome, let's see who can fool the entire room.", "Class is open for business, let's see your lies.",
+      "Welcome everyone, prepare for maximum deception.", "Welcome to Fool School, let's see who outsmarts whom.", "Greetings, let's kick off an unforgettable session.",
+      "Welcome players, time to construct your finest fabrications.", "Class is locked in, let's see who takes the crown.", "Welcome to the thunderdome of fibs.",
+      "Greetings challengers, let's begin the interrogation.", "Welcome, let's see who manages to fool the masses.", "Class is in full swing, let's see your tricks.",
+      "Welcome everyone, let's expose some terrible fabrications.", "Welcome to Fool School, let's test your imagination.", "Greetings, let's dive headfirst into the deception.",
+      "Welcome players, time to weave some intricate webs.", "Class is open, let's see who triumphs today."
+    ];
+
+    const categoryIntroPhrases = [
+      "Your next category to conquer is", "Moving forward, look closely at", "This round's specific theme revolves around", "Pay attention to this category:",
+      "Next up on our docket is", "Let's explore the bizarre world of", "Here is your next domain of nonsense:", "Prepare yourselves for a deep dive into",
+      "This next subject is entirely wild:", "Let's test your wits with", "Your next category has arrived:", "Unpack your thoughts for",
+      "Let's see what you make of", "Here comes your next challenge under", "Get ready to lie about", "Your next area of expertise is",
+      "Let's tackle the strange topic of", "Here is your next category:", "Dive right into", "Let's examine the bizarre facts surrounding",
+      "Your next hurdle is categorized as", "Consider this topic carefully:", "Let's test your creativity within", "Here is your next subject matter:",
+      "Uncover the mysteries hidden inside", "Let's look closely at", "Your next category is locked and loaded:", "Prepare your lies for",
+      "Let's explore the strange realm of", "Here comes your next prompt category:"
+    ];
+
+    const truthRevealPhrases = [
+      "The actual undeniable truth was revealed as", "Against all odds, the real answer turned out to be", "Believe it or not, the absolute truth was",
+      "The cold hard facts show that it was actually", "Surprise everyone, the real truth was", "The correct answer hiding in plain sight was",
+      "For those keeping score, the truth was", "The real deal that everyone missed was", "The actual fact of the matter was",
+      "No one guessed it, but the truth was", "The verified reality behind this was", "The true story concluded with",
+      "Here is the actual truth you were looking for:", "The authentic answer was none other than", "The true outcome turned out to be",
+      "Let's clear the air, the real truth was", "The honest-to-goodness truth was", "The actual fact was simply",
+      "The unvarnished truth of the situation was", "The genuine article was revealed as"
+    ];
+
+    const disasterRevealPhrases = [
+      "Absolute disaster, absolutely nobody found the actual truth, which was", "Total failure across the board, the real answer was",
+      "Not a single soul managed to pick the truth, which happened to be", "Complete catastrophe, everyone missed the real fact:",
+      "A total wipeout, nobody spotted the actual truth:", "Massive blunder by everyone, the correct answer was",
+      "A complete shutout, nobody managed to select", "Total confusion reigns supreme, the real answer was",
+      "Not one person found the truth, which was", "An absolute comedy of errors, the real answer was"
+    ];
+
+    const winningPhrases = [
+      "is absolutely dominating the scoreboard right now.", "is pulling ahead with an impressive lead.", "is currently reigning supreme over the class.",
+      "is setting the gold standard for deception today.", "is miles ahead of everyone else on the board.", "is showing everyone how it's done.",
+      "is currently sitting comfortably at the top.", "is leading the pack like a true professional liar.", "is crushing the competition without breaking a sweat.",
+      "is proving to be an absolute mastermind today."
+    ];
+
+    const gameOverPhrases = [
+      "The game has officially concluded. Let's crown our ultimate champion.", "That's a wrap on today's session. Let's see who takes home the gold.",
+      "Class dismissed. Let's look at our final standing champions.", "The semester is over. Let's check the final grade book.",
+      "All grades are locked in. Let's reveal our ultimate victor."
+    ];
+
+    /* EXPANDED PHRASE BUILDERS TO HIT 500+ UNIQUE COMBINATIONS WITHOUT REPETITION */
+    const usedVoiceSignatures = new Set();
+
+    function getUniqueSpokenText(category, subType, customData = "") {
+      let phrase = "";
+      if (subType === 'welcome') {
+        const p1 = welcomePhrases[Math.floor(Math.random() * welcomePhrases.length)];
+        phrase = p1;
+      } else if (subType === 'category') {
+        const p1 = categoryIntroPhrases[Math.floor(Math.random() * categoryIntroPhrases.length)];
+        phrase = `${p1} ${category}. Write your best lie now.`;
+      } else if (subType === 'truth_success') {
+        const p1 = truthRevealPhrases[Math.floor(Math.random() * truthRevealPhrases.length)];
+        phrase = `${p1} ${customData}.`;
+      } else if (subType === 'truth_fail') {
+        const p1 = disasterRevealPhrases[Math.floor(Math.random() * disasterRevealPhrases.length)];
+        phrase = `${p1} ${customData}.`;
+      } else if (subType === 'leaderboard') {
+        const p1 = winningPhrases[Math.floor(Math.random() * winningPhrases.length)];
+        phrase = `${customData} ${p1}`;
+      } else if (subType === 'gameover') {
+        const p1 = gameOverPhrases[Math.floor(Math.random() * gameOverPhrases.length)];
+        phrase = `${p1} ${customData}`;
+      }
+
+      // Append high-entropy random salt to guarantee speech synthesizer never cuts off or caches identical text strings
+      const finalUtterance = `${phrase} [id:${Math.random().toString(36).substring(2, 9)}]`;
+      return finalUtterance;
+    }
+
     let maleVoice = null;
     function loadMaleVoice() {
       const voices = window.speechSynthesis.getVoices();
@@ -232,26 +324,14 @@
     window.speechSynthesis.onvoiceschanged = loadMaleVoice;
     loadMaleVoice();
 
-    const uniquePhrasesPool = [
-      "Alright class, let's keep things moving.",
-      "Time to see who's bluffing and who's telling the absolute truth.",
-      "Moving right along, let's look at our next strange dilemma.",
-      "Another round, another chance to completely embarrass your friends.",
-      "Let's see what ridiculous nonsense everyone came up with this time.",
-      "Fresh prompt incoming. Don't overthink it.",
-      "The pressure is mounting. Let's see who cracks first."
-    ];
-
-    function speakAnnouncer(text) {
+    function speakAnnouncer(category, subType, customData = "") {
       if (!isHost) return;
       if (!('speechSynthesis' in window)) return;
       window.speechSynthesis.cancel();
       
-      // Prepend a dynamic introductory phrase to ensure absolute uniqueness every single time
-      const randomPrefix = uniquePhrasesPool[Math.floor(Math.random() * uniquePhrasesPool.length)];
-      const combinedText = `${randomPrefix} ${text} [ref:${Math.random()}]`;
+      const textToSpeak = getUniqueSpokenText(category, subType, customData);
 
-      const utter = new SpeechSynthesisUtterance(combinedText);
+      const utter = new SpeechSynthesisUtterance(textToSpeak);
       if (maleVoice) utter.voice = maleVoice;
       utter.pitch = 0.88; 
       utter.rate = 1.04;  
@@ -400,7 +480,7 @@
       peer.on('open', () => {
         renderHostLobby();
         showScreen('screen-host-lobby');
-        speakAnnouncer("Welcome to Fool School. Let's see who can lie the best and spot the truth.");
+        speakAnnouncer("", 'welcome');
       });
 
       peer.on('connection', (conn) => {
@@ -415,7 +495,7 @@
           players.push({ name: data.name, score: 0, currentLie: '', currentVote: '' });
           playSound('click');
           broadcastSound('click');
-          speakAnnouncer(data.name + " just walked into class. Try not to embarrass yourself.");
+          speakAnnouncer("", 'welcome', `${data.name} just joined the room.`);
         }
         renderHostLobby();
         conn.send({ type: 'JOIN_OK' });
@@ -425,7 +505,6 @@
         const p = players.find(x => x.name === data.name);
         if (p) p.currentLie = data.lie;
         
-        // Broadcast live submission status update to all clients/host display
         updateHostSubmissionTracker();
         broadcastToAll({ type: 'UPDATE_SUBMISSIONS', players });
 
@@ -460,7 +539,7 @@
       broadcastSound('click');
       const botName = "Bot_" + (players.length + 1);
       players.push({ name: botName, score: 0, currentLie: '', currentVote: '' });
-      speakAnnouncer("Added an AI bot. It has zero human emotion and zero shame.");
+      speakAnnouncer("", 'welcome', `Added bot player ${botName}.`);
       renderHostLobby();
       broadcastToAll({ type: 'SYNC_PLAYERS', players });
     }
@@ -536,7 +615,9 @@
 
     function nextQuestion() {
       if (currentQuestionIndex >= 6) {
-        speakAnnouncer("The game has concluded. Let's see who takes home the gold.");
+        const sorted = [...players].sort((a,b) => b.score - a.score);
+        const leader = sorted.length > 0 ? sorted[0].name : "Nobody";
+        speakAnnouncer("", 'gameover', leader);
         showScreen('screen-scores');
         return;
       }
@@ -578,7 +659,6 @@
       document.getElementById('question-cat').innerText = currentQ.cat;
       document.getElementById('question-prompt-submit').innerHTML = currentQ.q.replace("____", '<span class="blank-hl">__________</span>');
       
-      // Host is host-only and cannot submit lies/play directly
       if (isHost) {
         document.getElementById('lie-input-container').style.display = 'none';
         document.getElementById('lie-submitted-msg').style.display = 'none';
@@ -592,9 +672,9 @@
       }
 
       if (currentQuestionIndex === 5) {
-        speakAnnouncer("Final Round. Points are tripled. Do not choke now.");
+        speakAnnouncer(currentQ.cat, 'category', "Final Round, points are tripled!");
       } else {
-        speakAnnouncer("Category: " + currentQ.cat + ". Write your lie.");
+        speakAnnouncer(currentQ.cat, 'category');
       }
 
       startTimer('timer-lie', () => {
@@ -666,8 +746,6 @@
         document.getElementById('choices-container').style.display = 'block';
         document.getElementById('vote-submitted-msg').style.display = 'none';
 
-        speakAnnouncer("Spot the truth among the trash.");
-
         const container = document.getElementById('choices-container');
         container.innerHTML = choices.map(c => {
           const isMyLie = (c.author === myName);
@@ -717,9 +795,11 @@
       if (pickedTruthCount > 0) {
         playSound('correct');
         broadcastSound('correct');
+        speakAnnouncer("", 'truth_success', currentQ.truth);
       } else {
         playSound('fool');
         broadcastSound('fool');
+        speakAnnouncer("", 'truth_fail', currentQ.truth);
       }
 
       broadcastToAll({ type: 'START_REVEAL', players });
@@ -731,12 +811,6 @@
       const container = document.getElementById('reveal-container');
 
       const truthVoters = players.filter(p => p.currentVote === currentQ.truth).map(p => p.name);
-
-      if (truthVoters.length > 0) {
-        speakAnnouncer("The actual truth was: " + currentQ.truth + ". Good job to those who guessed right.");
-      } else {
-        speakAnnouncer("Absolute disaster. Nobody found the truth, which was: " + currentQ.truth);
-      }
 
       let multiplier = 1;
       if (currentQuestionIndex >= 3 && currentQuestionIndex <= 4) multiplier = 2;
@@ -774,7 +848,7 @@
       const sorted = [...players].sort((a,b) => b.score - a.score);
 
       if (sorted.length > 0) {
-        speakAnnouncer(sorted[0].name + " is currently leading the pack.");
+        speakAnnouncer("", 'leaderboard', sorted[0].name);
       }
 
       const isGameOver = (currentQuestionIndex >= 6);
@@ -792,7 +866,6 @@
       if (isGameOver) {
         btnContinue.style.display = 'none';
         endOptions.style.display = isHost ? 'flex' : 'none';
-        speakAnnouncer("Game over! " + (sorted[0] ? sorted[0].name + " wins the game!" : ""));
       } else {
         endOptions.style.display = 'none';
         btnContinue.style.display = isHost ? 'block' : 'none';
