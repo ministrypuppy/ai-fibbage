@@ -4,6 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Fool School</title>
+  <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
     body { background: linear-gradient(135deg, #181824, #28283d); color: #fff; min-height: 100vh; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 20px; }
@@ -47,12 +48,12 @@
   <!-- HOST LOBBY -->
   <div id="screen-host-lobby" class="screen">
     <h2>Room Code</h2>
-    <div class="code-box" id="host-code-display">----</div>
+    <div class="code-box" id="host-code-display">...</div>
     <p class="subtitle">Joined Players (<span id="player-count">0</span>):</p>
     <div class="player-list" id="host-player-list"></div>
     <button class="btn btn-host" onclick="startFibbageGame()">Start Game</button>
     <button class="btn btn-sec" onclick="addBotPlayer()">+ Add AI Bot Player</button>
-    <button class="btn btn-sec" onclick="showScreen('screen-main')">Cancel</button>
+    <button class="btn btn-sec" onclick="location.reload()">Cancel</button>
   </div>
 
   <!-- JOIN SCREEN -->
@@ -68,7 +69,7 @@
   <!-- PLAYER WAITING LOBBY -->
   <div id="screen-player-wait" class="screen">
     <h2>You're In!</h2>
-    <p class="subtitle" id="player-welcome-msg">Waiting for host to start...</p>
+    <p class="subtitle" id="player-welcome-msg">Connecting to host...</p>
     <div style="font-size: 3rem; margin: 20px 0;">⏳</div>
   </div>
 
@@ -121,7 +122,10 @@
     let players = [];
     let currentQ = null;
     let timerInterval = null;
-    let channel = null;
+    
+    let peer = null;
+    let hostConn = null;
+    let clientConns = [];
 
     const masterQuestions = [
       { cat: "Strange Laws", q: "In France, it is strictly illegal to name a pig ____.", truth: "Napoleon" },
@@ -134,9 +138,7 @@
     const botLies = ["a giant cheese wheel", "the local mayor", "a cursed toaster", "free coupons", "a fake mustache"];
 
     function getNextQuestion() {
-      if (!pool || pool.length === 0) {
-        pool = [...masterQuestions].sort(() => Math.random() - 0.5);
-      }
+      if (!pool || pool.length === 0) pool = [...masterQuestions].sort(() => Math.random() - 0.5);
       return pool.pop();
     }
 
@@ -165,14 +167,8 @@
 
     function stopTimer() { clearInterval(timerInterval); }
 
-    function connectChannel(code) {
-      if (channel) channel.close();
-      channel = new BroadcastChannel('fool_school_' + code);
-      channel.onmessage = (e) => handleNetworkMessage(e.data);
-    }
-
-    function broadcast(msg) {
-      if (channel) channel.postMessage(msg);
+    function broadcastToAll(data) {
+      clientConns.forEach(c => { if(c && c.open) c.send(data); });
     }
 
     /* HOST FLOW */
@@ -181,15 +177,44 @@
       roomCode = Math.random().toString(36).substring(2, 6).toUpperCase();
       myName = "HOST";
       players = [];
-      
-      connectChannel(roomCode);
+      clientConns = [];
 
       document.getElementById('host-code-display').innerText = roomCode;
       document.getElementById('host-next-btn').style.display = 'block';
       document.getElementById('host-continue-btn').style.display = 'block';
-      
-      renderHostLobby();
-      showScreen('screen-host-lobby');
+
+      peer = new Peer('FS-' + roomCode);
+
+      peer.on('open', () => {
+        renderHostLobby();
+        showScreen('screen-host-lobby');
+      });
+
+      peer.on('connection', (conn) => {
+        clientConns.push(conn);
+        conn.on('data', (data) => handleHostIncomingData(conn, data));
+      });
+    }
+
+    function handleHostIncomingData(conn, data) {
+      if (data.type === 'JOIN_REQ') {
+        if (!players.some(p => p.name === data.name)) {
+          players.push({ name: data.name, score: 0, currentLie: '', currentVote: '' });
+        }
+        renderHostLobby();
+        conn.send({ type: 'JOIN_OK' });
+        broadcastToAll({ type: 'SYNC_PLAYERS', players });
+      }
+      if (data.type === 'SUBMIT_LIE') {
+        const p = players.find(x => x.name === data.name);
+        if (p) p.currentLie = data.lie;
+        if (players.every(p => p.currentLie !== '')) startVotingStage();
+      }
+      if (data.type === 'SUBMIT_VOTE') {
+        const p = players.find(x => x.name === data.name);
+        if (p) p.currentVote = data.vote;
+        if (players.every(p => p.currentVote !== '')) calculateAndShowReveal();
+      }
     }
 
     function renderHostLobby() {
@@ -201,7 +226,7 @@
       const botName = "Bot_" + (players.length + 1);
       players.push({ name: botName, score: 0, currentLie: '', currentVote: '' });
       renderHostLobby();
-      broadcast({ type: 'SYNC_PLAYERS', players });
+      broadcastToAll({ type: 'SYNC_PLAYERS', players });
     }
 
     /* JOIN FLOW */
@@ -214,62 +239,42 @@
       myName = document.getElementById('join-name').value.trim();
       const code = document.getElementById('join-code').value.trim().toUpperCase();
 
-      if (!myName || !code) return alert("Please enter your name and code!");
-      
-      roomCode = code;
-      connectChannel(roomCode);
+      if (!myName || !code) return alert("Please enter your name and room code!");
 
       showScreen('screen-player-wait');
-      document.getElementById('player-welcome-msg').innerText = `Connected to room ${roomCode}! Waiting for host...`;
+      document.getElementById('player-welcome-msg').innerText = `Connecting to room ${code}...`;
 
-      broadcast({ type: 'JOIN_REQUEST', name: myName });
+      peer = new Peer();
+      peer.on('open', () => {
+        hostConn = peer.connect('FS-' + code);
+        
+        hostConn.on('open', () => {
+          document.getElementById('player-welcome-msg').innerText = `Connected! Waiting for host to start...`;
+          hostConn.send({ type: 'JOIN_REQ', name: myName });
+        });
+
+        hostConn.on('data', (data) => handleClientIncomingData(data));
+      });
     }
 
-    /* NETWORK MESSAGE ROUTER */
-    function handleNetworkMessage(data) {
-      if (isHost) {
-        if (data.type === 'JOIN_REQUEST') {
-          if (!players.some(p => p.name === data.name)) {
-            players.push({ name: data.name, score: 0, currentLie: '', currentVote: '' });
-          }
-          renderHostLobby();
-          broadcast({ type: 'JOIN_ACK', players });
-        }
-        if (data.type === 'SUBMIT_LIE_NET') {
-          const p = players.find(x => x.name === data.name);
-          if (p) p.currentLie = data.lie;
-          if (players.every(p => p.currentLie !== '')) {
-            startVotingStage();
-          }
-        }
-        if (data.type === 'SUBMIT_VOTE_NET') {
-          const p = players.find(x => x.name === data.name);
-          if (p) p.currentVote = data.vote;
-          if (players.every(p => p.currentVote !== '')) {
-            calculateAndShowReveal();
-          }
-        }
-      } else {
-        if (data.type === 'JOIN_ACK' || data.type === 'SYNC_PLAYERS') {
-          players = data.players;
-        }
-        if (data.type === 'START_QUESTION') {
-          currentQ = data.question;
-          players = data.players;
-          setupSubmitLieScreen();
-        }
-        if (data.type === 'START_VOTE') {
-          players = data.players;
-          setupVotingScreen(data.choices);
-        }
-        if (data.type === 'START_REVEAL') {
-          players = data.players;
-          setupRevealScreen();
-        }
-        if (data.type === 'START_SCORES') {
-          players = data.players;
-          setupScoresScreen();
-        }
+    function handleClientIncomingData(data) {
+      if (data.type === 'SYNC_PLAYERS') players = data.players;
+      if (data.type === 'START_Q') {
+        currentQ = data.question;
+        players = data.players;
+        setupSubmitLieScreen();
+      }
+      if (data.type === 'START_VOTE') {
+        players = data.players;
+        setupVotingScreen(data.choices);
+      }
+      if (data.type === 'START_REVEAL') {
+        players = data.players;
+        setupRevealScreen();
+      }
+      if (data.type === 'START_SCORES') {
+        players = data.players;
+        setupScoresScreen();
       }
     }
 
@@ -282,12 +287,12 @@
     function nextQuestion() {
       currentQ = getNextQuestion();
       players.forEach(p => { p.currentLie = ''; p.currentVote = ''; });
-      
+
       players.filter(p => p.name.startsWith('Bot_')).forEach(b => {
         b.currentLie = botLies[Math.floor(Math.random() * botLies.length)];
       });
 
-      broadcast({ type: 'START_QUESTION', question: currentQ, players });
+      broadcastToAll({ type: 'START_Q', question: currentQ, players });
       setupSubmitLieScreen();
     }
 
@@ -318,7 +323,7 @@
         if (p) p.currentLie = lie;
         if (players.every(p => p.currentLie !== '')) startVotingStage();
       } else {
-        broadcast({ type: 'SUBMIT_LIE_NET', name: myName, lie: lie });
+        hostConn.send({ type: 'SUBMIT_LIE', name: myName, lie: lie });
       }
     }
 
@@ -333,7 +338,7 @@
         b.currentVote = valid[Math.floor(Math.random() * valid.length)].text;
       });
 
-      broadcast({ type: 'START_VOTE', choices, players });
+      broadcastToAll({ type: 'START_VOTE', choices, players });
       setupVotingScreen(choices);
     }
 
@@ -365,7 +370,7 @@
         if (p) p.currentVote = choiceText;
         if (players.every(p => p.currentVote !== '')) calculateAndShowReveal();
       } else {
-        broadcast({ type: 'SUBMIT_VOTE_NET', name: myName, vote: choiceText });
+        hostConn.send({ type: 'SUBMIT_VOTE', name: myName, vote: choiceText });
       }
     }
 
@@ -377,7 +382,7 @@
         p.score += (fooled.length * 500);
       });
 
-      broadcast({ type: 'START_REVEAL', players });
+      broadcastToAll({ type: 'START_REVEAL', players });
       setupRevealScreen();
     }
 
@@ -403,7 +408,7 @@
     }
 
     function nextRoundOrScores() {
-      broadcast({ type: 'START_SCORES', players });
+      broadcastToAll({ type: 'START_SCORES', players });
       setupScoresScreen();
     }
 
