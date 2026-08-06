@@ -7,7 +7,7 @@
   <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
-    body { background: linear-gradient(135deg, #181824, #28283d); color: #fff; min-height: 100vh; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 20px; }
+    body { background: linear-gradient(135deg, #181824, #28283d); color: #fff; min-height: 100vh; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 20px; padding-bottom: 70px; }
     .screen { display: none; background: rgba(255, 255, 255, 0.05); backdrop-filter: blur(12px); border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 20px; padding: 30px; width: 100%; max-width: 520px; text-align: center; box-shadow: 0 15px 35px rgba(0,0,0,0.5); }
     .screen.active { display: block; }
     h1 { font-size: 2.5rem; font-weight: 800; background: linear-gradient(45deg, #ff6b6b, #feca57, #48dbfb, #ff9ff3); -webkit-background-clip: text; -webkit-text-fill-color: transparent; margin-bottom: 5px; }
@@ -32,10 +32,18 @@
     .truth { border: 2px solid #1dd1a1; }
     .timer-badge { font-size: 1.5rem; font-weight: 900; background: rgba(0,0,0,0.4); padding: 8px 18px; border-radius: 30px; display: inline-block; margin-bottom: 15px; border: 2px solid #48dbfb; color: #48dbfb; }
     .timer-badge.warning { border-color: #ff4757; color: #ff4757; animation: pulseRed 0.6s infinite alternate; }
+    
+    /* HOST PERSISTENT ROOM BAR */
+    #host-bar { display: none; position: fixed; bottom: 12px; left: 50%; transform: translateX(-50%); background: rgba(24, 24, 36, 0.95); border: 1px solid #feca57; color: #fff; padding: 8px 20px; border-radius: 30px; font-weight: 700; font-size: 0.95rem; box-shadow: 0 4px 15px rgba(0,0,0,0.6); z-index: 999; }
+    #host-bar span { color: #feca57; letter-spacing: 2px; font-weight: 900; }
+
     @keyframes pulseRed { from { transform: scale(1); } to { transform: scale(1.1); } }
   </style>
 </head>
 <body>
+
+  <!-- PERSISTENT HOST BAR -->
+  <div id="host-bar">ROOM CODE: <span id="host-bar-code">----</span></div>
 
   <!-- MAIN MENU -->
   <div id="screen-main" class="screen active">
@@ -116,6 +124,72 @@
   </div>
 
   <script>
+    /* AUDIO SYNTHESIZER */
+    const AudioCtx = window.AudioContext || window.webkitAudioContext;
+    let actx = null;
+
+    function initAudio() { if (!actx) actx = new AudioCtx(); }
+
+    function playSound(type) {
+      initAudio();
+      if (!actx) return;
+      const now = actx.currentTime;
+      const osc = actx.createOscillator();
+      const gain = actx.createGain();
+      osc.connect(gain);
+      gain.connect(actx.destination);
+
+      if (type === 'click') {
+        osc.frequency.setValueAtTime(400, now);
+        osc.frequency.exponentialRampToValueAtTime(800, now + 0.08);
+        gain.gain.setValueAtTime(0.15, now);
+        gain.gain.exponentialRampToValueAtTime(0.01, now + 0.08);
+        osc.start(now); osc.stop(now + 0.08);
+      } else if (type === 'tick') {
+        osc.type = 'triangle';
+        osc.frequency.setValueAtTime(1000, now);
+        gain.gain.setValueAtTime(0.05, now);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.04);
+        osc.start(now); osc.stop(now + 0.04);
+      } else if (type === 'correct') {
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(523.25, now);
+        osc.frequency.setValueAtTime(659.25, now + 0.1);
+        osc.frequency.setValueAtTime(783.99, now + 0.2);
+        gain.gain.setValueAtTime(0.2, now);
+        gain.gain.exponentialRampToValueAtTime(0.01, now + 0.35);
+        osc.start(now); osc.stop(now + 0.35);
+      } else if (type === 'fool') {
+        osc.type = 'sawtooth';
+        osc.frequency.setValueAtTime(200, now);
+        osc.frequency.linearRampToValueAtTime(90, now + 0.25);
+        gain.gain.setValueAtTime(0.2, now);
+        gain.gain.exponentialRampToValueAtTime(0.01, now + 0.25);
+        osc.start(now); osc.stop(now + 0.25);
+      }
+    }
+
+    /* MALE ANNOUNCER VOICE */
+    let maleVoice = null;
+    function loadMaleVoice() {
+      const voices = window.speechSynthesis.getVoices();
+      maleVoice = voices.find(v => v.lang.startsWith('en') && (v.name.includes('Male') || v.name.includes('David') || v.name.includes('Alex') || v.name.includes('George') || v.name.includes('Daniel') || v.name.includes('Natural'))) ||
+                  voices.find(v => v.lang.startsWith('en')) || null;
+    }
+    window.speechSynthesis.onvoiceschanged = loadMaleVoice;
+    loadMaleVoice();
+
+    function speakAnnouncer(text) {
+      if (!('speechSynthesis' in window)) return;
+      window.speechSynthesis.cancel();
+      const utter = new SpeechSynthesisUtterance(text);
+      if (maleVoice) utter.voice = maleVoice;
+      utter.pitch = 0.9;
+      utter.rate = 1.05;
+      window.speechSynthesis.speak(utter);
+    }
+
+    /* GAME STATE */
     let isHost = false;
     let roomCode = '';
     let myName = '';
@@ -128,14 +202,13 @@
     let clientConns = [];
 
     const masterQuestions = [
-      { cat: "Strange Laws", q: "In France, it is strictly illegal to name a pig ____.", truth: "Napoleon" },
-      { cat: "Corporate Missteps", q: "In 2019, a corporate employee caused an office panic by accidentally emailing ____ to 2,000 colleagues.", truth: "a picture of a cat in a tie" },
-      { cat: "Bizarre History", q: "In 1912, an angry landlord attempted to evict a tenant by releasing three dozen ____ into their living room.", truth: "ferrets" },
-      { cat: "Workplace Fails", q: "A man in Ohio was fired on his first day after trying to bribe his supervisor with ____.", truth: "a half-eaten pizza" },
-      { cat: "Odd Inventions", q: "In 1955, a patent was filed for a device designed to automatically ____.", truth: "pat children on the back" }
+      { cat: "Strange Laws", q: "In France, it is strictly illegal to name a pig ____.", truth: "Napoleon", decoys: ["Louis", "Baguette", "Croissant", "Porkchop"] },
+      { cat: "Corporate Missteps", q: "In 2019, a corporate employee caused an office panic by accidentally emailing ____ to 2,000 colleagues.", truth: "a picture of a cat in a tie", decoys: ["their tax returns", "a resignation letter", "an invite to a brawl", "a spiderman meme"] },
+      { cat: "Bizarre History", q: "In 1912, an angry landlord attempted to evict a tenant by releasing three dozen ____ into their living room.", truth: "ferrets", decoys: ["skunks", "bees", "badgers", "scorpions"] },
+      { cat: "Workplace Fails", q: "A man in Ohio was fired on his first day after trying to bribe his supervisor with ____.", truth: "a half-eaten pizza", decoys: ["a fake rolex", "expired scratch-offs", "a bucket of gravel", "concert tickets"] },
+      { cat: "Odd Inventions", q: "In 1955, a patent was filed for a device designed to automatically ____.", truth: "pat children on the back", decoys: ["butter toast", "untie shoes", "comb bald spots", "salute flags"] }
     ];
     let pool = [];
-    const botLies = ["a giant cheese wheel", "the local mayor", "a cursed toaster", "free coupons", "a fake mustache"];
 
     function getNextQuestion() {
       if (!pool || pool.length === 0) pool = [...masterQuestions].sort(() => Math.random() - 0.5);
@@ -157,7 +230,10 @@
       timerInterval = setInterval(() => {
         timeLeft--;
         el.innerText = timeLeft;
-        if (timeLeft <= 10) el.classList.add('warning');
+        if (timeLeft <= 10) {
+          el.classList.add('warning');
+          playSound('tick');
+        }
         if (timeLeft <= 0) {
           clearInterval(timerInterval);
           if (onComplete) onComplete();
@@ -171,8 +247,9 @@
       clientConns.forEach(c => { if(c && c.open) c.send(data); });
     }
 
-    /* HOST FLOW */
+    /* HOST LOBBY */
     function openHostLobby() {
+      initAudio();
       isHost = true;
       roomCode = Math.random().toString(36).substring(2, 6).toUpperCase();
       myName = "HOST";
@@ -180,6 +257,7 @@
       clientConns = [];
 
       document.getElementById('host-code-display').innerText = roomCode;
+      document.getElementById('host-bar-code').innerText = roomCode;
       document.getElementById('host-next-btn').style.display = 'block';
       document.getElementById('host-continue-btn').style.display = 'block';
 
@@ -188,6 +266,7 @@
       peer.on('open', () => {
         renderHostLobby();
         showScreen('screen-host-lobby');
+        speakAnnouncer("Welcome to Fool School. Gather your friends and enter the room code.");
       });
 
       peer.on('connection', (conn) => {
@@ -200,6 +279,8 @@
       if (data.type === 'JOIN_REQ') {
         if (!players.some(p => p.name === data.name)) {
           players.push({ name: data.name, score: 0, currentLie: '', currentVote: '' });
+          playSound('click');
+          speakAnnouncer(data.name + " has entered the room!");
         }
         renderHostLobby();
         conn.send({ type: 'JOIN_OK' });
@@ -223,19 +304,26 @@
     }
 
     function addBotPlayer() {
+      initAudio();
+      playSound('click');
       const botName = "Bot_" + (players.length + 1);
       players.push({ name: botName, score: 0, currentLie: '', currentVote: '' });
+      speakAnnouncer("Added an artificial intelligence bot. Let us see if it can fool you.");
       renderHostLobby();
       broadcastToAll({ type: 'SYNC_PLAYERS', players });
     }
 
-    /* JOIN FLOW */
+    /* JOIN LOBBY */
     function openJoinScreen() {
+      initAudio();
+      playSound('click');
       isHost = false;
       showScreen('screen-join');
     }
 
     function submitPlayerJoin() {
+      initAudio();
+      playSound('click');
       myName = document.getElementById('join-name').value.trim();
       const code = document.getElementById('join-code').value.trim().toUpperCase();
 
@@ -278,8 +366,10 @@
       }
     }
 
-    /* GAME PLAY LOOP */
+    /* GAMEPLAY LOOP */
     function startFibbageGame() {
+      playSound('click');
+      if (isHost) document.getElementById('host-bar').style.display = 'block';
       if (players.length === 0) addBotPlayer();
       nextQuestion();
     }
@@ -288,8 +378,9 @@
       currentQ = getNextQuestion();
       players.forEach(p => { p.currentLie = ''; p.currentVote = ''; });
 
-      players.filter(p => p.name.startsWith('Bot_')).forEach(b => {
-        b.currentLie = botLies[Math.floor(Math.random() * botLies.length)];
+      const botDecoys = [...currentQ.decoys].sort(() => Math.random() - 0.5);
+      players.filter(p => p.name.startsWith('Bot_')).forEach((b, i) => {
+        b.currentLie = botDecoys[i % botDecoys.length];
       });
 
       broadcastToAll({ type: 'START_Q', question: currentQ, players });
@@ -304,9 +395,11 @@
       document.getElementById('lie-submitted-msg').style.display = 'none';
       document.getElementById('user-lie-input').value = '';
 
+      speakAnnouncer("Category: " + currentQ.cat + ". Write a convincing lie!");
+
       startTimer('timer-lie', () => {
         if (document.getElementById('lie-input-container').style.display !== 'none') {
-          document.getElementById('user-lie-input').value = "Total Nonsense";
+          document.getElementById('user-lie-input').value = currentQ.decoys[0];
           submitLie();
         }
       });
@@ -314,7 +407,13 @@
 
     function submitLie() {
       stopTimer();
-      let lie = document.getElementById('user-lie-input').value.trim() || "No answer";
+      playSound('click');
+      let lie = document.getElementById('user-lie-input').value.trim() || currentQ.decoys[0];
+      
+      if (lie.toLowerCase() === currentQ.truth.toLowerCase()) {
+        lie = lie + " (Not Quite)";
+      }
+
       document.getElementById('lie-input-container').style.display = 'none';
       document.getElementById('lie-submitted-msg').style.display = 'block';
 
@@ -329,8 +428,23 @@
 
     function startVotingStage() {
       stopTimer();
-      let choices = players.map(p => ({ text: p.currentLie, author: p.name }));
+      let choices = [];
+
+      players.forEach(p => {
+        choices.push({ text: p.currentLie, author: p.name });
+      });
+
       choices.push({ text: currentQ.truth, author: 'TRUTH' });
+
+      let decoyIdx = 0;
+      while (choices.length < 4 && decoyIdx < currentQ.decoys.length) {
+        const decoyText = currentQ.decoys[decoyIdx];
+        if (!choices.some(c => c.text.toLowerCase() === decoyText.toLowerCase())) {
+          choices.push({ text: decoyText, author: 'SYSTEM_DECOY' });
+        }
+        decoyIdx++;
+      }
+
       choices = choices.sort(() => Math.random() - 0.5);
 
       players.filter(p => p.name.startsWith('Bot_')).forEach(b => {
@@ -348,6 +462,8 @@
       document.getElementById('choices-container').style.display = 'block';
       document.getElementById('vote-submitted-msg').style.display = 'none';
 
+      speakAnnouncer("Find the truth among the lies. Pick carefully!");
+
       const container = document.getElementById('choices-container');
       container.innerHTML = choices.map(c => {
         const isMyLie = (c.author === myName);
@@ -362,6 +478,7 @@
 
     function submitVote(choiceText) {
       stopTimer();
+      playSound('click');
       document.getElementById('choices-container').style.display = 'none';
       document.getElementById('vote-submitted-msg').style.display = 'block';
 
@@ -376,11 +493,18 @@
 
     function calculateAndShowReveal() {
       stopTimer();
+      let pickedTruthCount = 0;
+
       players.forEach(p => {
-        if (p.currentVote === currentQ.truth) p.score += 1000;
+        if (p.currentVote === currentQ.truth) {
+          p.score += 1000;
+          pickedTruthCount++;
+        }
         const fooled = players.filter(other => other.currentVote === p.currentLie && other.name !== p.name);
         p.score += (fooled.length * 500);
       });
+
+      if (pickedTruthCount > 0) playSound('correct'); else playSound('fool');
 
       broadcastToAll({ type: 'START_REVEAL', players });
       setupRevealScreen();
@@ -390,9 +514,17 @@
       showScreen('screen-reveal');
       const container = document.getElementById('reveal-container');
 
+      const truthVoters = players.filter(p => p.currentVote === currentQ.truth).map(p => p.name);
+
+      if (truthVoters.length > 0) {
+        speakAnnouncer("The truth was indeed: " + currentQ.truth + ". Shout out to those who saw through the lies.");
+      } else {
+        speakAnnouncer("Nobody found the truth! It was: " + currentQ.truth + ". You all got completely fooled.");
+      }
+
       let html = `<div class="reveal-card truth">
         <div class="reveal-answer" style="color:#1dd1a1;">TRUTH: ${currentQ.truth}</div>
-        <div class="reveal-voters">Chosen by: ${players.filter(p => p.currentVote === currentQ.truth).map(p => p.name).join(', ') || 'Nobody'}</div>
+        <div class="reveal-voters">Chosen by: ${truthVoters.join(', ') || 'Nobody'}</div>
       </div>`;
 
       players.forEach(p => {
@@ -408,6 +540,7 @@
     }
 
     function nextRoundOrScores() {
+      playSound('click');
       broadcastToAll({ type: 'START_SCORES', players });
       setupScoresScreen();
     }
@@ -416,6 +549,11 @@
       showScreen('screen-scores');
       const container = document.getElementById('leaderboard-container');
       const sorted = [...players].sort((a,b) => b.score - a.score);
+
+      if (sorted.length > 0) {
+        speakAnnouncer(sorted[0].name + " is currently sitting at the top of the leaderboard.");
+      }
+
       container.innerHTML = sorted.map((p, i) => `
         <div class="reveal-card" style="display:flex; justify-content:space-between; align-items:center;">
           <div><strong>#${i+1} ${p.name}</strong></div>
