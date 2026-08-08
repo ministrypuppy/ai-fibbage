@@ -308,7 +308,7 @@
     let pausedByPlayer = '';
 
     // ==========================================
-    // FISHER-YATES SHUFFLE & SESSION TRACKING VAULT
+    // ROBUST FISHER-YATES SHUFFLE & QUEUE
     // ==========================================
     const masterVault = [
       { cat: "Animal Oddities", q: "A group of flamingos is officially called a ____", truth: "Flamboyance", decoys: ["Patrol", "Blush", "Gleam"] },
@@ -324,17 +324,18 @@
     let sessionQuestionQueue = [];
 
     function initializeQuestionSession() {
-      // Fisher-Yates Shuffle
-      sessionQuestionQueue = [...masterVault];
-      for (let i = sessionQuestionQueue.length - 1; i > 0; i--) {
+      // Deep clone and run Fisher-Yates Shuffle
+      let shuffled = JSON.parse(JSON.stringify(masterVault));
+      for (let i = shuffled.length - 1; i > 0; i--) {
         const j = Math.floor(Math.random() * (i + 1));
-        [sessionQuestionQueue[i], sessionQuestionQueue[j]] = [sessionQuestionQueue[j], sessionQuestionQueue[i]];
+        [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
       }
+      sessionQuestionQueue = shuffled;
     }
 
     function getNextObscureQuestion() {
       if (sessionQuestionQueue.length === 0) {
-        initializeQuestionSession(); // Loop back with a fresh shuffled set if exhausted
+        initializeQuestionSession(); // Re-shuffle fresh copy if pool runs out
       }
       return sessionQuestionQueue.pop();
     }
@@ -621,6 +622,7 @@
       broadcastSound('click');
       if (players.length === 0) addBotPlayer();
       currentQuestionIndex = 0;
+      initializeQuestionSession();
       nextQuestion();
     }
 
@@ -804,7 +806,6 @@
 
     function setupRevealScreen() {
       showScreen('screen-reveal');
-      // Enable pause button during 'The Truth Unveiled' for all players & host
       setGlobalControlBarVisible(true);
 
       const container = document.getElementById('reveal-container');
@@ -859,7 +860,6 @@
         </div>
       `).join('');
 
-      // Add section at the bottom for each player and their lie
       leaderboardHtml += `<div style="margin-top: 20px; text-align: left; background: rgba(0,0,0,0.25); padding: 15px; border-radius: 12px; border: 1px solid rgba(255,255,255,0.1);">
         <h4 style="color: #feca57; margin-bottom: 8px; font-size: 0.95rem;">Player Lies This Round:</h4>
         <div style="display: flex; flex-direction: column; gap: 6px;">`;
