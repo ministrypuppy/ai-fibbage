@@ -147,11 +147,6 @@
       <p class="subtitle" id="score-continue-status" style="margin-top: 8px; font-size:0.85rem;">Click to skip timer</p>
     </div>
 
-    <div id="win-tally-box" style="margin-top: 15px; background: rgba(0,0,0,0.3); padding: 12px; border-radius: 10px; display: none; text-align: left;">
-      <p style="font-weight: 700; color: #feca57; margin-bottom: 6px; font-size: 0.9rem;">Series Lifetime Win Tally:</p>
-      <div id="win-tally-list" style="display: flex; flex-direction: column; gap: 4px; font-size: 0.85rem;"></div>
-    </div>
-
     <div id="host-end-options" style="display:none; flex-direction: column; gap: 10px; margin-top:15px;">
       <button class="btn btn-host" onclick="restartSamePlayers()">Play Again - Same Players</button>
       <button class="btn btn-join" onclick="restartNewPlayers()">Play Again - New Players</button>
@@ -285,63 +280,88 @@
     let pausedByPlayer = '';
     let recentSignaturesHistory = [];
 
-    const categoryTopics = [
-      "Bizarre Internet History", "Ancient Culinary Disasters", "Deep Sea Anomalies", 
-      "Dubious Corporate Policies", "Strange Pet Behaviors", "Questionable Fashion Trends", 
-      "Bizarre Tourist Traps", "Unsolved Household Mysteries", "Forgotten 90s Fads", 
-      "Overengineered Gadgets", "Strange Architectural Flaws", "Bizarre Museum Exhibits",
-      "Weird Animal Defenses", "Awkward Social Conventions", "Unusual Roadside Attractions"
+    // PROCEDURAL GENERATION ARRAYS
+    const procSubjects = [
+      "A Florida man", "A medieval king", "An eccentric billionaire", "A rogue AI", 
+      "A 19th-century inventor", "A disgraced magician", "A local cryptid", 
+      "A disgruntled zoo employee", "A confused time traveler", "An overly ambitious cult leader", 
+      "A Swedish scientist", "A 1920s mobster", "A highly intelligent octopus", 
+      "An unlicensed surgeon", "A paranoid conspiracy theorist", "A frantic wedding planner",
+      "An infamous pirate captain", "A rogue mall Santa", "A small-town mayor", "An amateur astronaut"
     ];
 
-    const promptTemplates = [
-      "Historians were baffled to discover that ancient civilizations used ____ as currency.",
-      "A rogue tech startup recently caused a nationwide panic by accidentally releasing ____ into the cloud.",
-      "Wildlife experts were stunned when a rare species of bird was found building nests entirely out of ____.",
-      "Due to a confusing zoning loophole, an entire neighborhood was legally required to install ____ in every driveway.",
-      "A museum in Ohio had to close its doors after someone tried to auction off a stolen ____.",
-      "During a routine deep-sea expedition, researchers stumbled upon an underwater cavern filled with ____.",
-      "The latest viral TikTok trend involves teenagers aggressively throwing ____ at each other in public parks.",
-      "An eccentric billionaire caused outrage by attempting to replace all streetlights in his hometown with ____."
+    const procSetups = [
+      "was arrested after trying to pay for a meal with ____.",
+      "famously demanded to be buried alongside ____.",
+      "accidentally started a religion based entirely on ____.",
+      "spent three million dollars trying to weaponize ____.",
+      "was permanently exiled from the city for hoarding ____.",
+      "claimed to receive daily telepathic messages from ____.",
+      "attempted to legally marry ____.",
+      "built a secret underground bunker entirely out of ____.",
+      "wrote a 500-page manifesto fiercely defending ____.",
+      "lost a highly publicized lawsuit against ____.",
+      "was caught on security cameras trying to deep-fry ____.",
+      "tried to bribe a federal judge using ____.",
+      "was found in a cheap motel room surrounded by ____.",
+      "interrupted a live national news broadcast to warn the world about ____.",
+      "was fired after replacing the office water cooler with ____.",
+      "was rushed to the hospital after attempting to swallow ____.",
+      "caused a massive traffic jam by releasing ____ onto the highway."
     ];
 
-    const objectPool = [
-      "live badger", "three gravy jugs", "golden plunger", "stolen gorilla", 
-      "mannequin hands", "motorized cart", "taxidermy cat", "wet cement block", 
-      "hollow log", "foam tile pack", "medieval sword", "neon sign", 
-      "quail egg jar", "karaoke box", "bowling balls", "Danny DeVito bust", 
-      "frozen turkey", "whoopie cushions", "antique doorknob", "rubber chicken",
-      "bag of onions", "giant burrito", "box of crayons", "plastic skull",
-      "used dental floss", "jar of pickled eggs", "inflatable dinosaur", "box of expired lube",
-      "rusty bear trap", "tub of mayonnaise", "cheap sex toy", "bag of adult diapers",
-      "jar of expired mustard", "cardboard cutout of Batman", "bag of glitter", "box of bowling shoes"
+    const procTruths = [
+      "a single wet noodle", "a haunted porcelain doll", "a briefcase full of teeth", 
+      "a jar of celebrity sweat", "an army of robotic hamsters", "a sentient block of cheese", 
+      "a counterfeit Beanie Baby", "a vat of expired mayonnaise", "a stolen police siren", 
+      "a heavily modified Roomba", "a decorative garden gnome", "a bag of toenail clippings", 
+      "a cursed VHS tape", "a flock of aggressively trained pigeons", "a solid gold plunger", 
+      "a 50-pound gummy bear", "a radioactive potato", "an inflatable T-Rex", 
+      "a taxidermied squirrel", "a bootleg DVD of Shrek", "three liters of fake blood", 
+      "a stolen shopping cart", "a slightly used coffin", "a collection of human hair", 
+      "a mechanical spider", "a 12-foot fiberglass hotdog", "a bucket of melted butter",
+      "a signed photograph of Guy Fieri", "a suspiciously heavy bowling ball", "a hive of angry bees"
+    ];
+
+    const procCategories = [
+      "Historical Blunders", "Florida News", "Weird Science", "Bizarre Crimes", 
+      "Questionable Life Choices", "Unexplained Phenomena", "Cryptid Sightings", 
+      "Terrible Inventions", "Awful Investments", "Animals Acting Badly", 
+      "Local Politics", "Bizarre Lawsuits"
     ];
 
     function generateUniqueQuestion() {
       let attempts = 0;
       while (attempts < 100) {
-        const dynamicCat = categoryTopics[Math.floor(Math.random() * categoryTopics.length)];
-        const qText = promptTemplates[Math.floor(Math.random() * promptTemplates.length)];
-        const truth = objectPool[Math.floor(Math.random() * objectPool.length)];
-        const signature = qText + "|" + truth;
+        // Procedurally generate the prompt
+        const cat = procCategories[Math.floor(Math.random() * procCategories.length)];
+        const subject = procSubjects[Math.floor(Math.random() * procSubjects.length)];
+        const setup = procSetups[Math.floor(Math.random() * procSetups.length)];
+        const qText = subject + " " + setup;
+        
+        const truth = procTruths[Math.floor(Math.random() * procTruths.length)];
+        const signature = subject + "|" + setup + "|" + truth;
 
-        if (!recentSignaturesHistory.includes(signature) && truth.length <= 25) {
+        if (!recentSignaturesHistory.includes(signature)) {
           recentSignaturesHistory.push(signature);
-          if (recentSignaturesHistory.length > 30) recentSignaturesHistory.shift();
+          if (recentSignaturesHistory.length > 50) recentSignaturesHistory.shift();
 
-          let availableDecoys = objectPool.filter(o => o !== truth);
+          // Generate decoys from the remaining truths pool
+          let availableDecoys = procTruths.filter(o => o !== truth);
           availableDecoys.sort(() => Math.random() - 0.5);
           let decoys = availableDecoys.slice(0, 3);
 
-          return { cat: dynamicCat, q: qText, truth, decoys };
+          return { cat, q: qText, truth, decoys };
         }
         attempts++;
       }
       
+      // Failsafe
       return {
-        cat: "Bizarre Internet History",
-        q: "Historians were baffled to discover that ancient civilizations used ____ as currency.",
-        truth: "live badger",
-        decoys: ["golden plunger", "stolen gorilla", "motorized cart"]
+        cat: "System Glitch",
+        q: "The game engine got confused and dispensed ____.",
+        truth: "pure nonsense",
+        decoys: ["a fatal error", "a blank screen", "a sad beep"]
       };
     }
 
