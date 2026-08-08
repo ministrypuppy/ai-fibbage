@@ -4,156 +4,413 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Fool School</title>
-  <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
+  <script src="https://unpkg.com/peerjs@1.4.7/dist/peerjs.min.js"></script>
   <style>
-    * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
-    body { background: linear-gradient(135deg, #181824, #28283d); color: #fff; min-height: 100vh; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 20px; padding-bottom: 70px; transition: background 0.5s ease; position: relative; }
-    body.final-round { background: linear-gradient(135deg, #2a0808, #4a1515); }
-    
-    body.edge-flash::after {
-      content: '';
-      position: fixed;
-      top: 0; left: 0; right: 0; bottom: 0;
-      border: 6px solid rgba(255, 71, 87, 0.6);
-      pointer-events: none;
-      box-shadow: inset 0 0 30px rgba(255, 71, 87, 0.4);
-      animation: edgeFlashAnim 0.6s infinite alternate;
-      z-index: 998;
+    :root {
+      --bg-gradient: linear-gradient(135deg, #0f0c29, #302b63, #24243e);
+      --card-bg: rgba(255, 255, 255, 0.08);
+      --accent: #feca57;
+      --accent-hover: #ff9f43;
+      --text: #ffffff;
+      --danger: #ff4757;
+      --success: #1dd1a1;
     }
-    @keyframes edgeFlashAnim { from { opacity: 0.3; } to { opacity: 1.0; } }
 
-    .screen { display: none; background: rgba(255, 255, 255, 0.05); backdrop-filter: blur(12px); border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 20px; padding: 30px; width: 100%; max-width: 520px; text-align: center; box-shadow: 0 15px 35px rgba(0,0,0,0.5); z-index: 2; }
-    .screen.active { display: block; }
-    h1 { font-size: 2.5rem; font-weight: 800; background: linear-gradient(45deg, #ff6b6b, #feca57, #48dbfb, #ff9ff3); -webkit-background-clip: text; -webkit-text-fill-color: transparent; margin-bottom: 5px; }
-    .subtitle { color: #a0a0c0; font-size: 0.95rem; margin-bottom: 25px; }
-    .btn { background: #48dbfb; color: #1e1e2f; border: none; padding: 14px 20px; font-size: 1.05rem; font-weight: 700; border-radius: 12px; cursor: pointer; transition: all 0.2s; width: 100%; margin-top: 10px; }
-    .btn:hover { transform: translateY(-2px); box-shadow: 0 6px 15px rgba(72, 219, 251, 0.4); }
-    .btn-host { background: linear-gradient(135deg, #ff9ff3, #feca57); color: #1e1e2f; }
-    .btn-join { background: linear-gradient(135deg, #48dbfb, #1dd1a1); color: #1e1e2f; }
-    .btn-sec { background: rgba(255,255,255,0.15); color: #fff; }
-    .btn-pause { background: linear-gradient(135deg, #ff4757, #ffa502); color: #fff; }
-    .btn:disabled { background: #555; color: #888; cursor: not-allowed; box-shadow: none; transform: none; }
-    .input-field { width: 100%; padding: 12px; border-radius: 10px; border: 1px solid rgba(255,255,255,0.2); background: rgba(0,0,0,0.3); color: #fff; font-size: 1.1rem; margin-bottom: 15px; outline: none; text-align: center; }
-    .code-box { font-size: 3rem; font-weight: 900; letter-spacing: 6px; color: #feca57; background: rgba(0,0,0,0.3); padding: 12px; border-radius: 12px; border: 2px dashed #feca57; margin: 15px 0; }
-    .player-list { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; margin: 15px 0; min-height: 40px; }
-    .player-chip { background: rgba(72, 219, 251, 0.2); border: 1px solid #48dbfb; color: #48dbfb; padding: 6px 14px; border-radius: 20px; font-weight: 700; font-size: 0.9rem; }
-    .question-box { font-size: 1.25rem; font-weight: 600; line-height: 1.4; padding: 18px; background: rgba(0,0,0,0.3); border-radius: 12px; border-left: 4px solid #48dbfb; margin-bottom: 20px; text-align: left; }
-    .blank-hl { color: #feca57; text-decoration: underline; font-weight: 800; }
-    .choice-btn { background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.2); color: #fff; padding: 14px; border-radius: 10px; font-size: 1rem; font-weight: 600; cursor: pointer; text-align: left; transition: all 0.2s; width: 100%; margin-bottom: 8px; }
-    .choice-btn:hover:not(:disabled) { background: rgba(255,255,255,0.2); border-color: #48dbfb; }
-    .reveal-card { background: rgba(0,0,0,0.3); border-radius: 10px; padding: 12px; margin-bottom: 10px; text-align: left; }
-    .reveal-answer { font-size: 1.1rem; font-weight: 700; }
-    .reveal-voters { font-size: 0.85rem; color: #1dd1a1; margin-top: 4px; }
-    .truth { border: 2px solid #1dd1a1; }
-    .timer-badge { font-size: 1.5rem; font-weight: 900; background: rgba(0,0,0,0.4); padding: 8px 18px; border-radius: 30px; display: inline-block; margin-bottom: 15px; border: 2px solid #48dbfb; color: #48dbfb; }
-    .timer-badge.warning { border-color: #ff4757; color: #ff4757; animation: pulseRed 0.6s infinite alternate; }
-    .round-badge { background: #feca57; color: #1e1e2f; font-weight: 800; padding: 4px 12px; border-radius: 8px; font-size: 0.85rem; display: inline-block; margin-bottom: 10px; }
-    
-    #global-control-bar { display: none; position: fixed; bottom: 12px; left: 50%; transform: translateX(-50%); background: rgba(24, 24, 36, 0.95); border: 1px solid #feca57; color: #fff; padding: 8px 20px; border-radius: 30px; font-weight: 700; font-size: 0.95rem; box-shadow: 0 4px 15px rgba(0,0,0,0.6); z-index: 999; align-items: center; gap: 15px; }
-    #global-control-bar span { color: #feca57; letter-spacing: 2px; font-weight: 900; }
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
 
-    #host-watermark-footer { display: none; position: fixed; bottom: 8px; left: 15px; background: rgba(0,0,0,0.6); border: 1px solid rgba(254, 202, 87, 0.4); padding: 4px 12px; border-radius: 8px; font-size: 0.8rem; font-weight: 700; color: #feca57; letter-spacing: 1px; z-index: 9999; pointer-events: none; }
+    body {
+      background: var(--bg-gradient);
+      color: var(--text);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      overflow-x: hidden;
+      padding: 20px;
+    }
 
-    @keyframes pulseRed { from { transform: scale(1); } to { transform: scale(1.1); } }
+    body.final-round {
+      background: linear-gradient(135deg, #2c0000, #4a0e0e, #1a0000);
+    }
+
+    .edge-flash {
+      animation: flashBorder 0.5s infinite alternate;
+    }
+
+    @keyframes flashBorder {
+      0% { box-shadow: inset 0 0 0px var(--danger); }
+      100% { box-shadow: inset 0 0 35px var(--danger); }
+    }
+
+    .screen {
+      display: none;
+      width: 100%;
+      max-width: 600px;
+      background: var(--card-bg);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      border-radius: 20px;
+      padding: 30px;
+      box-shadow: 0 15px 35px rgba(0,0,0,0.5);
+      text-align: center;
+      animation: fadeIn 0.4s ease-in-out;
+    }
+
+    .screen.active {
+      display: block;
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(15px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    h1 {
+      font-size: 2.5rem;
+      margin-bottom: 10px;
+      background: linear-gradient(135deg, #ff9f43, #feca57);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      text-transform: uppercase;
+      letter-spacing: 2px;
+    }
+
+    p.subtitle {
+      color: #a0a0c0;
+      margin-bottom: 25px;
+      font-size: 1rem;
+    }
+
+    .btn-group {
+      display: flex;
+      flex-direction: column;
+      gap: 15px;
+      margin-top: 20px;
+    }
+
+    button.primary-btn {
+      background: linear-gradient(135deg, #ff9f43, #feca57);
+      color: #1a1a2e;
+      border: none;
+      padding: 15px 25px;
+      font-size: 1.1rem;
+      font-weight: 700;
+      border-radius: 12px;
+      cursor: pointer;
+      transition: transform 0.2s, box-shadow 0.2s;
+      box-shadow: 0 5px 15px rgba(254, 202, 87, 0.3);
+      text-transform: uppercase;
+      letter-spacing: 1px;
+    }
+
+    button.primary-btn:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 8px 20px rgba(254, 202, 87, 0.5);
+    }
+
+    button.secondary-btn {
+      background: rgba(255, 255, 255, 0.1);
+      color: var(--text);
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      padding: 14px 25px;
+      font-size: 1rem;
+      font-weight: 600;
+      border-radius: 12px;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+
+    button.secondary-btn:hover {
+      background: rgba(255, 255, 255, 0.2);
+    }
+
+    input[type="text"] {
+      width: 100%;
+      padding: 15px;
+      background: rgba(0, 0, 0, 0.3);
+      border: 2px solid rgba(255, 255, 255, 0.15);
+      border-radius: 12px;
+      color: var(--text);
+      font-size: 1.1rem;
+      text-align: center;
+      outline: none;
+      transition: border-color 0.2s;
+      margin-bottom: 15px;
+    }
+
+    input[type="text"]:focus {
+      border-color: var(--accent);
+    }
+
+    .room-code-display {
+      font-size: 3rem;
+      font-weight: 800;
+      letter-spacing: 6px;
+      color: var(--accent);
+      background: rgba(0,0,0,0.3);
+      padding: 15px;
+      border-radius: 12px;
+      margin: 15px 0;
+      border: 2px dashed rgba(254, 202, 87, 0.4);
+    }
+
+    .player-list {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      justify-content: center;
+      margin: 20px 0;
+      max-height: 150px;
+      overflow-y: auto;
+    }
+
+    .player-chip {
+      background: rgba(255, 255, 255, 0.12);
+      padding: 8px 16px;
+      border-radius: 20px;
+      font-size: 0.95srem;
+      font-weight: 600;
+      border: 1px solid rgba(255,255,255,0.1);
+    }
+
+    .timer-badge {
+      font-size: 1.5rem;
+      font-weight: 700;
+      color: var(--accent);
+      background: rgba(0,0,0,0.4);
+      padding: 8px 20px;
+      border-radius: 30px;
+      display: inline-block;
+      margin-bottom: 20px;
+      border: 1px solid rgba(254, 202, 87, 0.3);
+    }
+
+    .timer-badge.warning {
+      color: var(--danger);
+      border-color: var(--danger);
+      animation: pulseTimer 0.5s infinite alternate;
+    }
+
+    @keyframes pulseTimer {
+      from { transform: scale(1); }
+      to { transform: scale(1.08); }
+    }
+
+    .question-box {
+      font-size: 1.3rem;
+      font-weight: 600;
+      margin-bottom: 25px;
+      line-height: 1.5;
+      background: rgba(0,0,0,0.2);
+      padding: 20px;
+      border-radius: 12px;
+      border-left: 4px solid var(--accent);
+    }
+
+    .blank-hl {
+      color: var(--accent);
+      text-decoration: underline;
+    }
+
+    .choice-btn {
+      width: 100%;
+      background: rgba(255, 255, 255, 0.08);
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      color: var(--text);
+      padding: 14px 20px;
+      font-size: 1.05rem;
+      font-weight: 600;
+      border-radius: 12px;
+      cursor: pointer;
+      transition: all 0.2s;
+      margin-bottom: 10px;
+      text-align: left;
+    }
+
+    .choice-btn:hover {
+      background: rgba(254, 202, 87, 0.2);
+      border-color: var(--accent);
+      transform: translateX(5px);
+    }
+
+    .reveal-card {
+      background: rgba(0,0,0,0.3);
+      padding: 15px;
+      border-radius: 12px;
+      margin-bottom: 12px;
+      border-left: 4px solid var(--danger);
+      text-align: left;
+    }
+
+    .reveal-card.truth {
+      border-left-color: var(--success);
+      background: rgba(29, 209, 161, 0.1);
+    }
+
+    .reveal-answer {
+      font-size: 1.1rem;
+      font-weight: 700;
+      margin-bottom: 5px;
+    }
+
+    .reveal-voters {
+      font-size: 0.85rem;
+      color: #a0a0c0;
+    }
+
+    #host-watermark-footer {
+      position: fixed;
+      bottom: 10px;
+      right: 15px;
+      font-size: 0.8rem;
+      color: rgba(255,255,255,0.4);
+      display: none;
+      pointer-events: none;
+    }
+
+    #global-control-bar {
+      position: fixed;
+      top: 15px;
+      right: 15px;
+      display: none;
+      gap: 10px;
+      z-index: 100;
+    }
+
+    .control-btn {
+      background: rgba(0,0,0,0.5);
+      border: 1px solid rgba(255,255,255,0.3);
+      color: white;
+      padding: 8px 14px;
+      border-radius: 8px;
+      cursor: pointer;
+      font-weight: 600;
+      font-size: 0.85rem;
+      backdrop-filter: blur(5px);
+    }
+
+    .control-btn:hover {
+      background: rgba(255,255,255,0.2);
+    }
   </style>
 </head>
 <body>
 
-  <div id="host-watermark-footer">ROOM CODE: <span id="watermark-room-code">----</span></div>
-
+  <!-- Global Control Bar for Pause / Continue -->
   <div id="global-control-bar">
-    <button id="pause-game-btn" class="btn btn-pause" style="margin:0; padding:4px 12px; font-size:0.85rem;" onclick="togglePauseGame()">Pause Game</button>
+    <button id="pause-game-btn" class="control-btn" onclick="togglePauseGame()" style="background: linear-gradient(135deg, #ff4757, #ffa502);">Pause Game</button>
   </div>
 
-  <div id="screen-main" class="screen active">
+  <!-- Host Watermark Footer -->
+  <div id="host-watermark-footer">ROOM: <span id="watermark-room-code">----</span> (HOST)</div>
+
+  <!-- SCREEN: HOME -->
+  <div id="screen-home" class="screen active">
     <h1>Fool School</h1>
-    <p class="subtitle">The Fill-in-the-Blank Lie Game</p>
-    <button class="btn btn-host" onclick="openHostLobby()">Host New Game</button>
-    <button class="btn btn-join" onclick="openJoinScreen()">Join Game</button>
+    <p class="subtitle">The Party Game of Bluffs, Lies, and Clever Deceptions</p>
+    <div class="btn-group">
+      <button class="primary-btn" onclick="openHostLobby()">Host Game</button>
+      <button class="secondary-btn" onclick="openJoinScreen()">Join Game</button>
+    </div>
   </div>
 
+  <!-- SCREEN: HOST LOBBY -->
   <div id="screen-host-lobby" class="screen">
-    <h2>Room Code</h2>
-    <div class="code-box" id="host-code-display">...</div>
-    <p class="subtitle">Joined Players (<span id="player-count">0</span>):</p>
+    <h1>Game Lobby</h1>
+    <p class="subtitle">Have players join using this room code:</p>
+    <div class="room-code-display" id="host-code-display">----</div>
+    <p style="font-weight: 600; margin-top: 10px;">Players Joined: <span id="player-count">0</span></p>
     <div class="player-list" id="host-player-list"></div>
-    <button class="btn btn-host" id="btn-start-game" onclick="startFibbageGame()">Start Game</button>
-    <button class="btn btn-sec" onclick="addBotPlayer()">+ Add AI Bot Player</button>
-    <button class="btn btn-sec" onclick="location.reload()">Cancel</button>
+    <div class="btn-group">
+      <button class="primary-btn" id="btn-start-game" onclick="startFibbageGame()">Start Game</button>
+      <button class="secondary-btn" onclick="addBotPlayer()">+ Add Bot Player</button>
+    </div>
   </div>
 
+  <!-- SCREEN: JOIN GAME -->
   <div id="screen-join" class="screen">
-    <h2>Join Game</h2>
-    <p class="subtitle">Enter session details</p>
-    <input type="text" id="join-name" class="input-field" placeholder="Your Name" maxlength="12">
-    <input type="text" id="join-code" class="input-field" placeholder="4-Letter Room Code" maxlength="4" style="text-transform:uppercase;">
-    <button class="btn btn-join" onclick="submitPlayerJoin()">Enter Room</button>
-    <button class="btn btn-sec" onclick="showScreen('screen-main')">Back</button>
+    <h1>Join Game</h1>
+    <p class="subtitle">Enter your name and the host's room code</p>
+    <input type="text" id="join-code" placeholder="ROOM CODE" maxlength="4" style="text-transform: uppercase;">
+    <input type="text" id="join-name" placeholder="YOUR NAME" maxlength="15">
+    <div class="btn-group">
+      <button class="primary-btn" onclick="submitPlayerJoin()">Enter Room</button>
+      <button class="secondary-btn" onclick="showScreen('screen-home')">Back</button>
+    </div>
   </div>
 
+  <!-- SCREEN: PLAYER WAIT -->
   <div id="screen-player-wait" class="screen">
-    <h2>You're In!</h2>
-    <p class="subtitle" id="player-welcome-msg">Connecting to host...</p>
-    <div style="font-size: 3rem; margin: 20px 0;">⏳</div>
+    <h1>Waiting Room</h1>
+    <p class="subtitle" id="player-welcome-msg">Connected! Waiting for host to start...</p>
+    <div style="font-size: 3rem; margin: 30px 0;">⏳</div>
   </div>
 
+  <!-- SCREEN: SUBMIT LIE -->
   <div id="screen-submit-lie" class="screen">
-    <div id="round-indicator" class="round-badge">ROUND 1</div>
-    <div class="timer-badge" id="timer-lie">45</div>
-    <p class="subtitle" style="color:#ff9ff3; font-weight:700;" id="question-cat">Category</p>
-    <div class="question-box" id="question-prompt-submit">Prompt</div>
+    <div id="timer-lie" class="timer-badge">45</div>
+    <div style="font-size: 0.85rem; color: var(--accent); font-weight: 700; margin-bottom: 5px; text-transform: uppercase;" id="round-indicator">Round 1</div>
+    <p style="font-size: 0.85rem; color: #a0a0c0; margin-bottom: 10px;" id="question-cat">Category</p>
+    <div class="question-box" id="question-prompt-submit">Loading question...</div>
+
     <div id="lie-input-container">
-      <input type="text" id="user-lie-input" class="input-field" placeholder="Enter a convincing short answer..." maxlength="20">
-      <button class="btn btn-host" onclick="submitLie()">Submit Answer</button>
+      <p class="subtitle" style="margin-bottom: 10px;">Type a fake answer to fool your friends:</p>
+      <input type="text" id="user-lie-input" placeholder="Your fake answer..." maxlength="25">
+      <button class="primary-btn" onclick="submitLie()" style="width: 100%;">Submit Lie</button>
     </div>
-    <div id="lie-submitted-msg" style="display:none;">
-      <p style="color:#1dd1a1; font-weight:700;">Answer Received!</p>
-      <p class="subtitle">Waiting for remaining players...</p>
+
+    <div id="lie-submitted-msg" style="display:none; padding: 20px; font-weight: 700; color: var(--success); font-size: 1.2rem;">
+      ✓ Lie Submitted! Waiting for other players...
     </div>
-    <div id="host-submission-status" style="margin-top: 20px; text-align: left; display: none;">
-      <p style="font-weight: 700; color: #feca57; margin-bottom: 8px;">Submissions Tracker:</p>
-      <div id="host-sub-list" style="display: flex; flex-direction: column; gap: 4px;"></div>
+
+    <div id="host-submission-status" style="display:none; text-align: left; margin-top: 15px;">
+      <p style="font-size: 0.9rem; font-weight: 700; margin-bottom: 8px; color: #feca57;">Player Submissions:</p>
+      <div id="host-sub-list" style="display:flex; flex-direction:column; gap:6px;"></div>
     </div>
   </div>
 
+  <!-- SCREEN: VOTE -->
   <div id="screen-vote" class="screen">
-    <div class="timer-badge" id="timer-vote">45</div>
-    <h2>Find the Truth!</h2>
-    <div class="question-box" id="question-prompt-vote">Prompt</div>
-    <div id="choices-container"></div>
-    <div id="vote-submitted-msg" style="display:none;">
-      <p style="color:#1dd1a1; font-weight:700;">Vote Locked In!</p>
-      <p class="subtitle">Waiting for remaining votes...</p>
+    <div id="timer-vote" class="timer-badge">45</div>
+    <p class="subtitle" style="margin-bottom: 10px;">Spot the Real Truth (or someone else's lie!):</p>
+    <div class="question-box" id="question-prompt-vote">Loading question...</div>
+    <div id="choices-container" style="display: flex; flex-direction: column; gap: 10px;"></div>
+    <div id="vote-submitted-msg" style="display:none; padding: 20px; font-weight: 700; color: var(--success); font-size: 1.2rem;">
+      ✓ Vote Locked In! Waiting for others...
     </div>
   </div>
 
+  <!-- SCREEN: REVEAL -->
   <div id="screen-reveal" class="screen">
-    <div class="timer-badge" id="timer-reveal">10</div>
-    <h2>The Truth Unveiled</h2>
-    <div id="reveal-container"></div>
+    <div id="timer-reveal" class="timer-badge">10</div>
+    <h1 style="font-size: 1.8rem; margin-bottom: 15px;">The Results Are In!</h1>
+    <div id="reveal-container" style="display: flex; flex-direction: column; gap: 10px; max-height: 350px; overflow-y: auto;"></div>
+    
     <div id="reveal-continue-container" style="margin-top: 20px;">
-      <button id="reveal-continue-btn" class="btn btn-host" onclick="sendContinueSignal()">Continue</button>
-      <p class="subtitle" id="reveal-continue-status" style="margin-top: 8px; font-size:0.85rem;">Click to skip timer</p>
+      <button class="primary-btn" onclick="sendContinueSignal()" style="width: 100%;">Continue to Scores ➔</button>
     </div>
   </div>
 
+  <!-- SCREEN: SCORES -->
   <div id="screen-scores" class="screen">
-    <div class="timer-badge" id="timer-score" style="display:none;">10</div>
-    <h2>Leaderboard</h2>
-    <div id="leaderboard-container" style="margin:20px 0;"></div>
+    <div id="timer-score" class="timer-badge">10</div>
+    <h1 style="font-size: 1.8rem; margin-bottom: 15px;">Leaderboard</h1>
+    <div id="leaderboard-container" style="max-height: 320px; overflow-y: auto; margin-bottom: 20px;"></div>
     
-    <div id="score-continue-container" style="margin-top: 20px;">
-      <button id="score-continue-btn" class="btn btn-host" onclick="sendContinueSignal()">Continue to Next Question</button>
-      <p class="subtitle" id="score-continue-status" style="margin-top: 8px; font-size:0.85rem;">Click to skip timer</p>
+    <div id="score-continue-container">
+      <button class="primary-btn" onclick="sendContinueSignal()" style="width: 100%;">Next Question ➔</button>
     </div>
 
-    <div id="host-end-options" style="display:none; flex-direction: column; gap: 10px; margin-top:15px;">
-      <button class="btn btn-host" onclick="restartSamePlayers()">Play Again - Same Players</button>
-      <button class="btn btn-join" onclick="restartNewPlayers()">Play Again - New Players</button>
+    <div id="host-end-options" class="btn-group" style="display: none;">
+      <button class="primary-btn" onclick="restartSamePlayers()">Play Again (Same Players)</button>
+      <button class="secondary-btn" onclick="restartNewPlayers()">Main Menu</button>
     </div>
   </div>
 
   <script>
+    // Paste the full updated JavaScript code here
     const AudioCtx = window.AudioContext || window.webkitAudioContext;
     let actx = null;
     let musicInterval = null;
@@ -307,9 +564,6 @@
     let clientConns = [];
     let pausedByPlayer = '';
 
-    // ==========================================
-    // ROBUST FISHER-YATES SHUFFLE & QUEUE
-    // ==========================================
     const masterVault = [
       { cat: "Animal Oddities", q: "A group of flamingos is officially called a ____", truth: "Flamboyance", decoys: ["Patrol", "Blush", "Gleam"] },
       { cat: "Historical Weirdness", q: "In 1386, a pig in France was publicly executed for the murder of a ____", truth: "Child", decoys: ["Monk", "Noble", "Merchant"] },
@@ -324,7 +578,6 @@
     let sessionQuestionQueue = [];
 
     function initializeQuestionSession() {
-      // Deep clone and run Fisher-Yates Shuffle
       let shuffled = JSON.parse(JSON.stringify(masterVault));
       for (let i = shuffled.length - 1; i > 0; i--) {
         const j = Math.floor(Math.random() * (i + 1));
@@ -335,11 +588,10 @@
 
     function getNextObscureQuestion() {
       if (sessionQuestionQueue.length === 0) {
-        initializeQuestionSession(); // Re-shuffle fresh copy if pool runs out
+        initializeQuestionSession(); 
       }
       return sessionQuestionQueue.pop();
     }
-    // ==========================================
 
     function showScreen(id) {
       document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
@@ -923,7 +1175,7 @@
       playSound('click');
       currentQuestionIndex = 0;
       players.forEach(p => { p.score = 0; p.currentLie = ''; p.currentVote = ''; });
-      initializeQuestionSession();
+      initializeQuestionSession(); 
       nextQuestion();
     }
 
