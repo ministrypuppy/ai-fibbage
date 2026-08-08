@@ -32,6 +32,7 @@
     .btn-join { background: linear-gradient(135deg, #48dbfb, #1dd1a1); color: #1e1e2f; }
     .btn-sec { background: rgba(255,255,255,0.15); color: #fff; }
     .btn-pause { background: linear-gradient(135deg, #ff4757, #ffa502); color: #fff; }
+    .btn:disabled { background: #555; color: #888; cursor: not-allowed; box-shadow: none; transform: none; }
     .input-field { width: 100%; padding: 12px; border-radius: 10px; border: 1px solid rgba(255,255,255,0.2); background: rgba(0,0,0,0.3); color: #fff; font-size: 1.1rem; margin-bottom: 15px; outline: none; text-align: center; }
     .code-box { font-size: 3rem; font-weight: 900; letter-spacing: 6px; color: #feca57; background: rgba(0,0,0,0.3); padding: 12px; border-radius: 12px; border: 2px dashed #feca57; margin: 15px 0; }
     .player-list { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; margin: 15px 0; min-height: 40px; }
@@ -77,7 +78,7 @@
     <div class="code-box" id="host-code-display">...</div>
     <p class="subtitle">Joined Players (<span id="player-count">0</span>):</p>
     <div class="player-list" id="host-player-list"></div>
-    <button class="btn btn-host" onclick="startFibbageGame()">Start Game</button>
+    <button class="btn btn-host" id="btn-start-game" onclick="startFibbageGame()">Start Game</button>
     <button class="btn btn-sec" onclick="addBotPlayer()">+ Add AI Bot Player</button>
     <button class="btn btn-sec" onclick="location.reload()">Cancel</button>
   </div>
@@ -103,7 +104,7 @@
     <p class="subtitle" style="color:#ff9ff3; font-weight:700;" id="question-cat">Category</p>
     <div class="question-box" id="question-prompt-submit">Prompt</div>
     <div id="lie-input-container">
-      <input type="text" id="user-lie-input" class="input-field" placeholder="Enter a convincing lie..." maxlength="30">
+      <input type="text" id="user-lie-input" class="input-field" placeholder="Enter a convincing lie..." maxlength="45">
       <button class="btn btn-host" onclick="submitLie()">Submit Lie</button>
     </div>
     <div id="lie-submitted-msg" style="display:none;">
@@ -167,14 +168,9 @@
       const utterance = new SpeechSynthesisUtterance(text);
       utterance.rate = 1.0;
       utterance.pitch = 0.9;
-      
       const voices = window.speechSynthesis.getVoices();
       const maleVoice = voices.find(v => v.lang.startsWith('en') && (v.name.toLowerCase().includes('male') || v.name.toLowerCase().includes('david') || v.name.toLowerCase().includes('george') || v.name.toLowerCase().includes('daniel') || v.name.toLowerCase().includes('google us english'))) || voices.find(v => v.lang.startsWith('en'));
-      
-      if (maleVoice) {
-        utterance.voice = maleVoice;
-      }
-      
+      if (maleVoice) utterance.voice = maleVoice;
       window.speechSynthesis.speak(utterance);
     }
 
@@ -190,7 +186,6 @@
       const gain = actx.createGain();
       osc.connect(gain);
       gain.connect(actx.destination);
-
       let volumeMultiplier = isLouder ? 2.2 : 1.0;
 
       if (type === 'click') {
@@ -214,13 +209,6 @@
         gain.gain.setValueAtTime(0.2, now);
         gain.gain.exponentialRampToValueAtTime(0.01, now + 0.35);
         osc.start(now); osc.stop(now + 0.35);
-      } else if (type === 'fool') {
-        osc.type = 'sawtooth';
-        osc.frequency.setValueAtTime(200, now);
-        osc.frequency.linearRampToValueAtTime(90, now + 0.25);
-        gain.gain.setValueAtTime(0.2, now);
-        gain.gain.exponentialRampToValueAtTime(0.01, now + 0.25);
-        osc.start(now); osc.stop(now + 0.25);
       }
     }
 
@@ -230,7 +218,6 @@
       if (!actx) return;
       musicType = type;
       let step = 0;
-
       const notesPlayful = [261.63, 329.63, 392.00, 523.25, 493.88, 392.00, 329.63, 293.66];
       const notesHighStakes = [130.81, 155.56, 196.00, 233.08, 196.00, 155.56, 130.81, 110.00];
 
@@ -241,14 +228,11 @@
         const gain = actx.createGain();
         osc.connect(gain);
         gain.connect(actx.destination);
-
         const notes = (musicType === 'highstakes') ? notesHighStakes : notesPlayful;
         osc.type = (musicType === 'highstakes') ? 'sawtooth' : 'triangle';
-        
         osc.frequency.setValueAtTime(notes[step % notes.length], now);
         gain.gain.setValueAtTime(0.04, now);
         gain.gain.exponentialRampToValueAtTime(0.001, now + 0.25);
-        
         osc.start(now);
         osc.stop(now + 0.25);
         step++;
@@ -256,10 +240,7 @@
     }
 
     function stopBackgroundMusic() {
-      if (musicInterval) {
-        clearInterval(musicInterval);
-        musicInterval = null;
-      }
+      if (musicInterval) { clearInterval(musicInterval); musicInterval = null; }
       musicType = 'none';
     }
 
@@ -272,98 +253,51 @@
     let currentQuestionIndex = 0; 
     let timerInterval = null;
     let timeLeft = 45;
-    
     let peer = null;
     let hostConn = null;
     let clientConns = [];
-
     let pausedByPlayer = '';
-    let recentSignaturesHistory = [];
 
-    // PROCEDURAL GENERATION ARRAYS
-    const procSubjects = [
-      "A Florida man", "A medieval king", "An eccentric billionaire", "A rogue AI", 
-      "A 19th-century inventor", "A disgraced magician", "A local cryptid", 
-      "A disgruntled zoo employee", "A confused time traveler", "An overly ambitious cult leader", 
-      "A Swedish scientist", "A 1920s mobster", "A highly intelligent octopus", 
-      "An unlicensed surgeon", "A paranoid conspiracy theorist", "A frantic wedding planner",
-      "An infamous pirate captain", "A rogue mall Santa", "A small-town mayor", "An amateur astronaut"
-    ];
+    // ==========================================
+    // LIVE API LOGIC
+    // ==========================================
+    let apiTriviaBank = [];
 
-    const procSetups = [
-      "was arrested after trying to pay for a meal with ____.",
-      "famously demanded to be buried alongside ____.",
-      "accidentally started a religion based entirely on ____.",
-      "spent three million dollars trying to weaponize ____.",
-      "was permanently exiled from the city for hoarding ____.",
-      "claimed to receive daily telepathic messages from ____.",
-      "attempted to legally marry ____.",
-      "built a secret underground bunker entirely out of ____.",
-      "wrote a 500-page manifesto fiercely defending ____.",
-      "lost a highly publicized lawsuit against ____.",
-      "was caught on security cameras trying to deep-fry ____.",
-      "tried to bribe a federal judge using ____.",
-      "was found in a cheap motel room surrounded by ____.",
-      "interrupted a live national news broadcast to warn the world about ____.",
-      "was fired after replacing the office water cooler with ____.",
-      "was rushed to the hospital after attempting to swallow ____.",
-      "caused a massive traffic jam by releasing ____ onto the highway."
-    ];
-
-    const procTruths = [
-      "a single wet noodle", "a haunted porcelain doll", "a briefcase full of teeth", 
-      "a jar of celebrity sweat", "an army of robotic hamsters", "a sentient block of cheese", 
-      "a counterfeit Beanie Baby", "a vat of expired mayonnaise", "a stolen police siren", 
-      "a heavily modified Roomba", "a decorative garden gnome", "a bag of toenail clippings", 
-      "a cursed VHS tape", "a flock of aggressively trained pigeons", "a solid gold plunger", 
-      "a 50-pound gummy bear", "a radioactive potato", "an inflatable T-Rex", 
-      "a taxidermied squirrel", "a bootleg DVD of Shrek", "three liters of fake blood", 
-      "a stolen shopping cart", "a slightly used coffin", "a collection of human hair", 
-      "a mechanical spider", "a 12-foot fiberglass hotdog", "a bucket of melted butter",
-      "a signed photograph of Guy Fieri", "a suspiciously heavy bowling ball", "a hive of angry bees"
-    ];
-
-    const procCategories = [
-      "Historical Blunders", "Florida News", "Weird Science", "Bizarre Crimes", 
-      "Questionable Life Choices", "Unexplained Phenomena", "Cryptid Sightings", 
-      "Terrible Inventions", "Awful Investments", "Animals Acting Badly", 
-      "Local Politics", "Bizarre Lawsuits"
-    ];
-
-    function generateUniqueQuestion() {
-      let attempts = 0;
-      while (attempts < 100) {
-        // Procedurally generate the prompt
-        const cat = procCategories[Math.floor(Math.random() * procCategories.length)];
-        const subject = procSubjects[Math.floor(Math.random() * procSubjects.length)];
-        const setup = procSetups[Math.floor(Math.random() * procSetups.length)];
-        const qText = subject + " " + setup;
-        
-        const truth = procTruths[Math.floor(Math.random() * procTruths.length)];
-        const signature = subject + "|" + setup + "|" + truth;
-
-        if (!recentSignaturesHistory.includes(signature)) {
-          recentSignaturesHistory.push(signature);
-          if (recentSignaturesHistory.length > 50) recentSignaturesHistory.shift();
-
-          // Generate decoys from the remaining truths pool
-          let availableDecoys = procTruths.filter(o => o !== truth);
-          availableDecoys.sort(() => Math.random() - 0.5);
-          let decoys = availableDecoys.slice(0, 3);
-
-          return { cat, q: qText, truth, decoys };
-        }
-        attempts++;
-      }
-      
-      // Failsafe
-      return {
-        cat: "System Glitch",
-        q: "The game engine got confused and dispensed ____.",
-        truth: "pure nonsense",
-        decoys: ["a fatal error", "a blank screen", "a sad beep"]
-      };
+    function decodeHTML(html) {
+      const txt = document.createElement('textarea');
+      txt.innerHTML = html;
+      return txt.value;
     }
+
+    async function fetchLiveTrivia() {
+      try {
+        const res = await fetch('https://opentdb.com/api.php?amount=50&type=multiple');
+        const data = await res.json();
+        
+        // Clean up the API text and append a blank to make it Fibbage style
+        apiTriviaBank = data.results.map(item => ({
+          cat: decodeHTML(item.category),
+          q: decodeHTML(item.question) + " ____", 
+          truth: decodeHTML(item.correct_answer),
+          decoys: item.incorrect_answers.map(decodeHTML)
+        }));
+      } catch (err) {
+        console.error("Failed to fetch API data:", err);
+      }
+    }
+
+    function getNextLiveQuestion() {
+      if (apiTriviaBank.length === 0) {
+        return { 
+          cat: "Emergency Backup", 
+          q: "The Trivia API ran out of questions ____", 
+          truth: "Mid-game", 
+          decoys: ["Yesterday", "Never", "Always"] 
+        };
+      }
+      return apiTriviaBank.shift();
+    }
+    // ==========================================
 
     function showScreen(id) {
       document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
@@ -398,14 +332,12 @@
         if (isPaused) return;
         timeLeft--;
         if (el) el.innerText = timeLeft;
-        
         if (seconds === 45 && timeLeft <= 10) {
           if (el) el.classList.add('warning');
           document.body.classList.add('edge-flash');
           playSound('tick', true);
           broadcastSound('tick', true);
         }
-
         if (timeLeft <= 0) {
           clearInterval(timerInterval);
           document.body.classList.remove('edge-flash');
@@ -422,7 +354,6 @@
 
     function togglePauseGame() {
       const currentPlayerName = isHost ? "HOST" : myName;
-
       if (isPaused) {
         if (pausedByPlayer && pausedByPlayer !== currentPlayerName && !isHost) {
           alert(`Game was paused by ${pausedByPlayer}. Only they or the host can unpause.`);
@@ -434,7 +365,6 @@
         isPaused = true;
         pausedByPlayer = currentPlayerName;
       }
-
       updatePauseButtonUI();
       
       if (isHost) {
@@ -447,7 +377,6 @@
     function updatePauseButtonUI() {
       const btn = document.getElementById('pause-game-btn');
       const currentPlayerName = isHost ? "HOST" : myName;
-      
       if (isPaused) {
         if (pausedByPlayer && pausedByPlayer !== currentPlayerName && !isHost) {
           btn.innerText = `Paused by ${pausedByPlayer}`;
@@ -463,18 +392,12 @@
     }
 
     function setGlobalControlBarVisible(visible) {
-      const bar = document.getElementById('global-control-bar');
-      if (visible) {
-        bar.style.display = 'flex';
-      } else {
-        bar.style.display = 'none';
-      }
+      document.getElementById('global-control-bar').style.display = visible ? 'flex' : 'none';
     }
 
     function broadcastToAll(data) {
       clientConns.forEach(c => { if(c && c.open) c.send(data); });
     }
-
     function broadcastSound(type, isLouder = false) {
       broadcastToAll({ type: 'PLAY_SOUND', sound: type, isLouder });
     }
@@ -487,18 +410,26 @@
       players = [];
       clientConns = [];
       currentQuestionIndex = 0;
-      recentSignaturesHistory = [];
 
       updateHostWatermarkVisibility();
       document.getElementById('host-code-display').innerText = roomCode;
       document.getElementById('host-end-options').style.display = 'none';
 
-      peer = new Peer('FS-' + roomCode);
+      const startBtn = document.getElementById('btn-start-game');
+      startBtn.disabled = true;
+      startBtn.innerText = "Fetching Infinite Trivia...";
 
+      // Fetch from API before allowing the host to start
+      fetchLiveTrivia().then(() => {
+        startBtn.disabled = false;
+        startBtn.innerText = "Start Game";
+      });
+
+      peer = new Peer('FS-' + roomCode);
       peer.on('open', () => {
         renderHostLobby();
         showScreen('screen-host-lobby');
-        speakHost("Room open. Tell your smart friends to join, or add bots if you're flying solo.");
+        speakHost("Room open. Tell your friends to join.");
       });
 
       peer.on('connection', (conn) => {
@@ -524,10 +455,8 @@
       if (data.type === 'SUBMIT_LIE') {
         const p = players.find(x => x.name === data.name);
         if (p) p.currentLie = data.lie;
-        
         updateHostSubmissionTracker();
         broadcastToAll({ type: 'UPDATE_SUBMISSIONS', players });
-
         if (players.every(p => p.currentLie !== '')) startVotingStage();
       }
       if (data.type === 'SUBMIT_VOTE') {
@@ -549,9 +478,7 @@
         broadcastToAll({ type: 'TOGGLE_PAUSE', isPaused, pausedByPlayer });
       }
       if (data.type === 'CONTINUE_REQ') {
-        if (!isPaused) {
-          triggerNextStageFromContinue();
-        }
+        if (!isPaused) triggerNextStageFromContinue();
       }
     }
 
@@ -575,8 +502,7 @@
       initAudio();
       playSound('click');
       broadcastSound('click');
-      const botName = "Bot_" + (players.length + 1);
-      players.push({ name: botName, score: 0, currentLie: '', currentVote: '' });
+      players.push({ name: "Bot_" + (players.length + 1), score: 0, currentLie: '', currentVote: '' });
       renderHostLobby();
       broadcastToAll({ type: 'SYNC_PLAYERS', players });
     }
@@ -596,7 +522,6 @@
       const code = document.getElementById('join-code').value.trim().toUpperCase();
 
       if (!myName || !code) return alert("Please enter your name and room code!");
-
       localStorage.setItem('fs_room', code);
       localStorage.setItem('fs_name', myName);
 
@@ -606,12 +531,10 @@
       peer = new Peer();
       peer.on('open', () => {
         hostConn = peer.connect('FS-' + code);
-        
         hostConn.on('open', () => {
           document.getElementById('player-welcome-msg').innerText = `Connected! Waiting for host to start...`;
           hostConn.send({ type: 'JOIN_REQ', name: myName });
         });
-
         hostConn.on('data', (data) => handleClientIncomingData(data));
       });
     }
@@ -655,9 +578,6 @@
         players = data.players;
         setupScoresScreen();
       }
-      if (data.type === 'FORCE_ADVANCE') {
-        executeTransitionToNextStage();
-      }
     }
 
     function startFibbageGame() {
@@ -675,12 +595,15 @@
         return;
       }
 
-      currentQ = generateUniqueQuestion();
+      // Fetch next API question
+      currentQ = getNextLiveQuestion();
+      
       players.forEach(p => { p.currentLie = ''; p.currentVote = ''; });
 
+      // Bot logic pulls from the API's incorrect answers
       const botDecoys = [...currentQ.decoys].sort(() => Math.random() - 0.5);
       players.filter(p => p.name.startsWith('Bot_')).forEach((b, i) => {
-        b.currentLie = botDecoys[i % botDecoys.length];
+        b.currentLie = botDecoys[i % botDecoys.length] || "Idk bro";
       });
 
       if (currentQuestionIndex === 5) {
@@ -765,7 +688,6 @@
       let combined = [currentQ.truth, ...currentQ.decoys, ...lies];
       let uniqueChoices = [...new Set(combined)];
       activeChoices = uniqueChoices.sort(() => Math.random() - 0.5);
-
       players.forEach(p => p.currentVote = '');
 
       players.filter(p => p.name.startsWith('Bot_')).forEach(b => {
