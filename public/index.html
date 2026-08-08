@@ -161,7 +161,6 @@
 
     function initAudio() { if (!actx) actx = new AudioCtx(); }
 
-    // Natural Cookie Masterson style voice synthesizer
     let voicesLoaded = false;
     let selectedVoice = null;
 
@@ -192,7 +191,7 @@
       const utterance = new SpeechSynthesisUtterance(text);
       if (selectedVoice) utterance.voice = selectedVoice;
       utterance.rate = 1.05;
-      utterance.pitch = 0.92; // Warm, charismatic game show host pitch
+      utterance.pitch = 0.92;
 
       if (onEnd) {
         utterance.onend = onEnd;
@@ -201,7 +200,6 @@
       window.speechSynthesis.speak(utterance);
     }
 
-    // Cookie Masterson style witty banter vault
     const hostQuips = {
       start: [
         "Welcome to Fool School! Let's see who can lie better than a used car salesperson.",
@@ -310,9 +308,9 @@
     let pausedByPlayer = '';
 
     // ==========================================
-    // HARDCORE OBSCURE FIBBAGE VAULT (Max 20 chars, 1-3 words)
+    // FISHER-YATES SHUFFLE & SESSION TRACKING VAULT
     // ==========================================
-    const obscureVault = [
+    const masterVault = [
       { cat: "Animal Oddities", q: "A group of flamingos is officially called a ____", truth: "Flamboyance", decoys: ["Patrol", "Blush", "Gleam"] },
       { cat: "Historical Weirdness", q: "In 1386, a pig in France was publicly executed for the murder of a ____", truth: "Child", decoys: ["Monk", "Noble", "Merchant"] },
       { cat: "Bizarre Laws", q: "In Kentucky, it is illegal to carry an ice cream cone in your ____", truth: "Back pocket", decoys: ["Handbag", "Hat", "Sock"] },
@@ -323,12 +321,22 @@
       { cat: "Botanical Trivia", q: "Bananas are naturally curved because they grow upwards toward the ____", truth: "Sun", decoys: ["Sky", "Moon", "Cloud"] }
     ];
 
-    function getNextObscureQuestion() {
-      if (obscureVault.length === 0) {
-        return { cat: "Emergency", q: "The obscure vault ran out of data ____", truth: "Midflight", decoys: ["Suddenly", "Quietly", "Forever"] };
+    let sessionQuestionQueue = [];
+
+    function initializeQuestionSession() {
+      // Fisher-Yates Shuffle
+      sessionQuestionQueue = [...masterVault];
+      for (let i = sessionQuestionQueue.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [sessionQuestionQueue[i], sessionQuestionQueue[j]] = [sessionQuestionQueue[j], sessionQuestionQueue[i]];
       }
-      const idx = Math.floor(Math.random() * obscureVault.length);
-      return obscureVault.splice(idx, 1)[0];
+    }
+
+    function getNextObscureQuestion() {
+      if (sessionQuestionQueue.length === 0) {
+        initializeQuestionSession(); // Loop back with a fresh shuffled set if exhausted
+      }
+      return sessionQuestionQueue.pop();
     }
     // ==========================================
 
@@ -443,6 +451,7 @@
       players = [];
       clientConns = [];
       currentQuestionIndex = 0;
+      initializeQuestionSession();
 
       updateHostWatermarkVisibility();
       document.getElementById('host-code-display').innerText = roomCode;
@@ -870,7 +879,7 @@
 
       if (currentQuestionIndex >= 5) {
         continueContainer.style.display = 'none';
-        endOptionsDiv.style.display = 'flex'; // Visible on players' screens too since state syncs/rendered universally
+        endOptionsDiv.style.display = 'flex';
         if (isHost) {
           speakHost(getRandomQuip('gameOver'));
         }
@@ -914,6 +923,7 @@
       playSound('click');
       currentQuestionIndex = 0;
       players.forEach(p => { p.score = 0; p.currentLie = ''; p.currentVote = ''; });
+      initializeQuestionSession();
       nextQuestion();
     }
 
