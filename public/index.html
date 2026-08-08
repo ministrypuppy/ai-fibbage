@@ -43,7 +43,6 @@
     .choice-btn:hover:not(:disabled) { background: rgba(255,255,255,0.2); border-color: #48dbfb; }
     .reveal-card { background: rgba(0,0,0,0.3); border-radius: 10px; padding: 12px; margin-bottom: 10px; text-align: left; }
     .reveal-answer { font-size: 1.1rem; font-weight: 700; }
-    .reveal-author { font-size: 0.85rem; color: #feca57; }
     .reveal-voters { font-size: 0.85rem; color: #1dd1a1; margin-top: 4px; }
     .truth { border: 2px solid #1dd1a1; }
     .timer-badge { font-size: 1.5rem; font-weight: 900; background: rgba(0,0,0,0.4); padding: 8px 18px; border-radius: 30px; display: inline-block; margin-bottom: 15px; border: 2px solid #48dbfb; color: #48dbfb; }
@@ -162,20 +161,72 @@
 
     function initAudio() { if (!actx) actx = new AudioCtx(); }
 
-    function speakHost(text) {
+    // Natural Cookie Masterson style voice synthesizer
+    let voicesLoaded = false;
+    let selectedVoice = null;
+
+    function loadVoices() {
       if (!('speechSynthesis' in window)) return;
-      window.speechSynthesis.cancel();
-      const utterance = new SpeechSynthesisUtterance(text);
-      utterance.rate = 1.0;
-      utterance.pitch = 0.9;
       const voices = window.speechSynthesis.getVoices();
-      const maleVoice = voices.find(v => v.lang.startsWith('en') && (v.name.toLowerCase().includes('male') || v.name.toLowerCase().includes('david') || v.name.toLowerCase().includes('george') || v.name.toLowerCase().includes('daniel') || v.name.toLowerCase().includes('google us english'))) || voices.find(v => v.lang.startsWith('en'));
-      if (maleVoice) utterance.voice = maleVoice;
-      window.speechSynthesis.speak(utterance);
+      if (voices.length > 0) {
+        voicesLoaded = true;
+        selectedVoice = voices.find(v => 
+          v.lang.startsWith('en') && (v.name.includes('Natural') || v.name.includes('Neural') || v.name.includes('Google') || v.name.includes('David') || v.name.includes('Daniel'))
+        ) || voices.find(v => v.lang.startsWith('en')) || voices[0];
+      }
     }
 
     if ('speechSynthesis' in window) {
-      window.speechSynthesis.onvoiceschanged = () => { window.speechSynthesis.getVoices(); };
+      window.speechSynthesis.onvoiceschanged = loadVoices;
+      loadVoices();
+    }
+
+    function speakHost(text, onEnd) {
+      if (!('speechSynthesis' in window)) {
+        if (onEnd) onEnd();
+        return;
+      }
+      window.speechSynthesis.cancel();
+      if (!voicesLoaded) loadVoices();
+
+      const utterance = new SpeechSynthesisUtterance(text);
+      if (selectedVoice) utterance.voice = selectedVoice;
+      utterance.rate = 1.05;
+      utterance.pitch = 0.92; // Warm, charismatic game show host pitch
+
+      if (onEnd) {
+        utterance.onend = onEnd;
+        utterance.onerror = onEnd;
+      }
+      window.speechSynthesis.speak(utterance);
+    }
+
+    // Cookie Masterson style witty banter vault
+    const hostQuips = {
+      start: [
+        "Welcome to Fool School! Let's see who can lie better than a used car salesperson.",
+        "Alright, put your thinking caps on and your integrity in the trash. Game on!"
+      ],
+      postQuestion: [
+        "Lock in those answers before I fall asleep and start dreaming about early retirement.",
+        "Oh, this one's a classic stumper. Try not to embarrass yourselves too badly.",
+        "Tick-tock, geniuses. Time is money, and your scores are currently bankrupt.",
+        "That's a tricky prompt. Let's see whose creative fiction fools the room."
+      ],
+      postReveal: [
+        "Ouch! Someone bought that lie hook, line, and sinker.",
+        "The truth hurts almost as bad as a botched bluff. Let's look at the damage.",
+        "And there it is! Absolute brilliance or total nonsense—you decide."
+      ],
+      gameOver: [
+        "What a legendary session of fibbing and fooling. Let's check out the final leaderboard!",
+        "School's out! Time to pack up your lies and head home."
+      ]
+    };
+
+    function getRandomQuip(category) {
+      const arr = hostQuips[category];
+      return arr[Math.floor(Math.random() * arr.length)];
     }
 
     function playSound(type, isLouder = false) {
@@ -276,7 +327,6 @@
       if (obscureVault.length === 0) {
         return { cat: "Emergency", q: "The obscure vault ran out of data ____", truth: "Midflight", decoys: ["Suddenly", "Quietly", "Forever"] };
       }
-      // Pick a random question and splice it so it doesn't immediately repeat
       const idx = Math.floor(Math.random() * obscureVault.length);
       return obscureVault.splice(idx, 1)[0];
     }
@@ -406,7 +456,7 @@
       peer.on('open', () => {
         renderHostLobby();
         showScreen('screen-host-lobby');
-        speakHost("Room open. Tell your friends to join.");
+        speakHost(getRandomQuip('start'));
       });
 
       peer.on('connection', (conn) => {
@@ -595,7 +645,6 @@
 
     function setupSubmitLieScreen() {
       showScreen('screen-submit-lie');
-      // No pause bar during answering phase per instruction
       setGlobalControlBarVisible(false);
       
       let roundText = "ROUND 1";
@@ -617,6 +666,7 @@
         document.getElementById('lie-submitted-msg').style.display = 'none';
         document.getElementById('host-submission-status').style.display = 'block';
         updateHostSubmissionTracker();
+        speakHost(getRandomQuip('postQuestion'));
       } else {
         document.getElementById('lie-input-container').style.display = 'block';
         document.getElementById('lie-submitted-msg').style.display = 'none';
@@ -678,7 +728,6 @@
 
     function setupVotingScreen(choices) {
       showScreen('screen-vote');
-      // No pause bar during voting phase per instruction
       setGlobalControlBarVisible(false);
       
       document.getElementById('question-prompt-vote').innerHTML = currentQ.q.replace('____', '<span class="blank-hl">________</span>');
@@ -735,7 +784,6 @@
         }
       });
 
-      // Show ONLY the correct answer card, and all player lies at the bottom
       revealDataSequence = activeChoices.filter(c => c.toLowerCase() === currentQ.truth.toLowerCase()).map(choice => {
         let voters = players.filter(x => x.currentVote && x.currentVote.toLowerCase() === choice.toLowerCase()).map(x => x.name);
         return { choice, isTruth: true, authorName: "THE TRUTH", voters };
@@ -747,6 +795,9 @@
 
     function setupRevealScreen() {
       showScreen('screen-reveal');
+      // Enable pause button during 'The Truth Unveiled' for all players & host
+      setGlobalControlBarVisible(true);
+
       const container = document.getElementById('reveal-container');
       
       let html = revealDataSequence.map(item => `
@@ -770,6 +821,10 @@
 
       container.innerHTML = html;
 
+      if (isHost) {
+        speakHost(getRandomQuip('postReveal'));
+      }
+
       startTimer('timer-reveal', 10, () => {
         if (isHost) triggerScoreScreen();
       });
@@ -783,26 +838,45 @@
 
     function setupScoresScreen() {
       showScreen('screen-scores');
-      // Enable pause/control bar here between rounds
       setGlobalControlBarVisible(true);
 
       const container = document.getElementById('leaderboard-container');
       
       let sorted = [...players].sort((a,b) => b.score - a.score);
-      container.innerHTML = sorted.map((p, idx) => `
+      let leaderboardHtml = sorted.map((p, idx) => `
         <div style="display:flex; justify-content:space-between; background:rgba(0,0,0,0.3); padding:10px 15px; border-radius:10px; margin-bottom:8px; font-weight:700;">
           <span>#${idx + 1} ${p.name}</span>
           <span style="color:#feca57;">${p.score} pts</span>
         </div>
       `).join('');
 
+      // Add section at the bottom for each player and their lie
+      leaderboardHtml += `<div style="margin-top: 20px; text-align: left; background: rgba(0,0,0,0.25); padding: 15px; border-radius: 12px; border: 1px solid rgba(255,255,255,0.1);">
+        <h4 style="color: #feca57; margin-bottom: 8px; font-size: 0.95rem;">Player Lies This Round:</h4>
+        <div style="display: flex; flex-direction: column; gap: 6px;">`;
+      
+      players.forEach(p => {
+        let lieText = p.currentLie ? `"${p.currentLie}"` : "No lie submitted";
+        leaderboardHtml += `<div style="font-size: 0.85rem; color: #a0a0c0;">
+          <strong style="color: #48dbfb;">${p.name}</strong>: ${lieText}
+        </div>`;
+      });
+      leaderboardHtml += `</div></div>`;
+
+      container.innerHTML = leaderboardHtml;
+
+      const endOptionsDiv = document.getElementById('host-end-options');
+      const continueContainer = document.getElementById('score-continue-container');
+
       if (currentQuestionIndex >= 5) {
-        document.getElementById('score-continue-container').style.display = 'none';
-        document.getElementById('host-end-options').style.display = isHost ? 'flex' : 'none';
-        if (isHost) speakHost("Game over! Let's check out the final leaderboard.");
+        continueContainer.style.display = 'none';
+        endOptionsDiv.style.display = 'flex'; // Visible on players' screens too since state syncs/rendered universally
+        if (isHost) {
+          speakHost(getRandomQuip('gameOver'));
+        }
       } else {
-        document.getElementById('score-continue-container').style.display = 'block';
-        document.getElementById('host-end-options').style.display = 'none';
+        continueContainer.style.display = 'block';
+        endOptionsDiv.style.display = 'none';
       }
 
       startTimer('timer-score', 10, () => {
@@ -834,7 +908,6 @@
 
     function processGameOverSequence() {
       stopBackgroundMusic();
-      speakHost("What a legendary session. Thanks for playing Fool School!");
     }
 
     function restartSamePlayers() {
