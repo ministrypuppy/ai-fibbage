@@ -151,9 +151,6 @@ let hostConn = null;
 let clientConns = [];
 let pausedByPlayer = '';
 
-// ==========================================
-// ROBUST FISHER-YATES SHUFFLE & QUEUE
-// ==========================================
 const masterVault = [
   { cat: "Animal Oddities", q: "A group of flamingos is officially called a ____", truth: "Flamboyance", decoys: ["Patrol", "Blush", "Gleam"] },
   { cat: "Historical Weirdness", q: "In 1386, a pig in France was publicly executed for the murder of a ____", truth: "Child", decoys: ["Monk", "Noble", "Merchant"] },
@@ -182,7 +179,6 @@ function getNextObscureQuestion() {
   }
   return sessionQuestionQueue.pop();
 }
-// ==========================================
 
 function showScreen(id) {
   document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
